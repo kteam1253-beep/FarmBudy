@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<l10n>
+  <texts>
+    <text name="cc_header_contracts" text="Ugovori"/>
+    <text name="cc_header_invoices" text="Računi"/>
+    <text name="cc_new" text="Novo"/>
+    <text name="cc_active" text="Aktivno"/>
+    <text name="cc_owned" text="Vlastito"/>
+    <text name="cc_contract_contractor_label" text="Prihvaćeno od"/>
+    <text name="cc_contract_status_label" text="Status"/>
+    <text name="cc_contract_field_label" text="ID polja"/>
+    <text name="cc_contract_worktype_label" text="Vrsta posla"/>
+    <text name="cc_contract_reward_label" text="Nagrada"/>
+    <text name="cc_contract_size_label" text="Veličina"/>
+    <text name="cc_status_open" text="Otvoreno"/>
+    <text name="cc_status_accepted" text="Prihvaćeno"/>
+    <text name="cc_status_completed" text="Završeno"/>
+    <text name="cc_status_cancelled" text="Otkazano"/>
+    <text name="cc_status_expired" text="Isteklo"/>
+    <text name="cc_ownedBy" text="Preuzeo:"/>
+    <text name="cc_contract_info_title" text="Opće informacije"/>
+    <text name="cc_contract_notes_title" text="Bilješke"/>
+    <text name="cc_contract_disclaimer" text="Prihvaćanjem ovog ugovora slažete se izvršiti navedeni posao kako je opisano. Plaćanje se vrši po završetku."/>
+  </texts>
+</l10n>

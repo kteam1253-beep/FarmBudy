@@ -1,0 +1,122 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<vehicle type="trailer" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://validation.gdn.giants-software.com/xml/fs25/vehicle.xsd">
+    <annotation>Copyright (C) GIANTS Software GmbH, All Rights Reserved.</annotation>
+    <storeData>
+        <name>
+            <en>Swath Roller</en>
+			<de>Schwadwalze</de>
+			<hr>Valjak za otkos</hr></name>
+		<specs>
+            <combination xmlFilename="swather.xml"/>
+        </specs>
+        <functions>
+            <function>$l10n_function_lowLoader</function>
+        </functions>
+        <rotation>0</rotation>
+        <image>store_roller.png</image>
+        <price>2000</price>
+        <lifetime>600</lifetime>
+        <brand>LIZARD</brand>
+        <category>lowloaders</category>
+		<shopLoadingDelay initial="5" config="5"/>
+        <shopTranslationOffset>0 0 0</shopTranslationOffset>
+        <shopRotationOffset>0.3 0 0</shopRotationOffset>
+        <vertexBufferMemoryUsage>97536</vertexBufferMemoryUsage>
+        <indexBufferMemoryUsage>26112</indexBufferMemoryUsage>
+        <textureMemoryUsage>458752</textureMemoryUsage>
+        <audioMemoryUsage>0</audioMemoryUsage>
+        <instanceVertexBufferMemoryUsage>0</instanceVertexBufferMemoryUsage>
+        <instanceIndexBufferMemoryUsage>0</instanceIndexBufferMemoryUsage>
+    </storeData>
+    
+	<base>
+        <typeDesc>$l10n_typeDesc_lowLoader</typeDesc>
+        <filename>roller.i3d</filename>
+        <size width="3.5" length="8.5" height="0.9" heightOffset="-0.25"/>
+        <sounds volumeFactor="1.8"/>
+        <components>
+            <component centerOfMass="0 0.45 0.2" solverIterationCount="10" mass="357"/>
+        </components>
+        <schemaOverlay attacherJointPosition="0 0" name="IMPLEMENT"/>
+        <mapHotspot type="TRAILER"/>
+    </base>
+    
+	<wheels>
+        <wheelConfigurations>
+            <wheelConfiguration name="$l10n_configuration_valueDefault" price="0" brand="CONTINENTAL" saveId="CONTINENTAL_DEFAULT">
+                <wheels>
+                    <wheel filename="wheels/245_65R16.xml" isLeft="true" hasTireTracks="true" hasParticles="true">
+                        <physics tipOcclusionAreaGroupId="1" restLoad="0.7" repr="wheelLeft" forcePointRatio="0.35" initialCompression="10" suspTravel="0.13" spring="45" damper="50"/>
+                    </wheel>
+                    <wheel filename="wheels/245_65R16.xml" isLeft="false" hasTireTracks="true" hasParticles="true">
+                        <physics tipOcclusionAreaGroupId="1" restLoad="0.7" repr="wheelRight" forcePointRatio="0.35" initialCompression="10" suspTravel="0.13" spring="45" damper="50"/>
+                    </wheel>
+					<wheel isLeft="true" hasTireTracks="true" hasParticles="true">
+                        <physics rotSpeed="1" restLoad="2" repr="rollerwheel" useReprDirection="true" forcePointRatio="0.43" radius="0.45" width="2.6" mass="0.086" brakeFactor="0" initialCompression="30" suspTravel="0.8" spring="1" damper="0" yOffset="0.03"/>
+                        <tire tireTrackAtlasIndex="4"/>
+                    </wheel>
+                </wheels>
+            </wheelConfiguration>
+        </wheelConfigurations>
+        <rimMaterial materialTemplateName="ELMERSMFG_BEIGE1"/>
+        <hubMaterial materialTemplateName="CAPELLO_BLACK1"/>
+        <hubBoltMaterial materialTemplateName="CAPELLO_BLACK1"/>
+        <hubs>
+            <hub linkNode="wheelLeft" filename="$data/shared/wheels/hubs/hub_n6_1.xml" isLeft="true" scale="0.19 0.19 0.19"/>
+            <hub linkNode="wheelRight" filename="$data/shared/wheels/hubs/hub_n6_1.xml" isLeft="false" scale="0.19 0.19 0.19"/>
+        </hubs>
+    </wheels>
+	
+	<speedRotatingParts>
+        <speedRotatingPart node="roller" wheelNodes="rollerwheel" radius="0.452" hasTireTracks="true" tireTrackAtlasIndex="4" tireTrackWidth="2.6" tireTrackWheelNode="heightNode" activationSpeed="0.5"/>
+    </speedRotatingParts>
+    
+	<attachable>
+        <inputAttacherJoints>
+            <inputAttacherJoint node="attacherJoint" jointType="trailerLow"/>
+			<inputAttacherJoint node="attacherJoint" jointType="trailer"/>
+			<inputAttacherJoint node="attacherJoint" jointType="trailerCar"/>
+        </inputAttacherJoints>
+		<brakeForce force="0.35" maxForce="0.5" maxForceMass="1000"/>
+    </attachable>
+
+	<animations>
+		<animation name="roller">
+			<part node="rollerframe" startTime="0" endTime="1" startTrans="0 -0.1 0" endTrans="0 0.1 0"/>
+		</animation>
+    </animations>
+	
+	<cylindered>
+		<movingTools>
+			<movingTool node="rollerframe" playSound="false" wheelIndices="3">
+				<controls axis="AXIS_CRANE_ARM3" invertAxis="true" iconName="IMPLEMENT_ATTACHER_TRANS" />
+				<animation animSpeed="0.5" animAcceleration="1" animName="roller" animStartTime="0" />
+			</movingTool>
+		</movingTools>
+    </cylindered>
+    
+	<ai>
+        <agentAttachment jointNode="attacherJoint" rotCenterWheelIndices="1 2" width="2.6" height="2" length="6.2" lengthOffset="2.7"/>
+    </ai>
+    
+	<foliageBending>
+        <bendingNode minX="-1.3" maxX="1.3" minZ="-3.95" maxZ="2.3" yOffset="0.3"/>
+    </foliageBending>
+        
+	<wearable wearDuration="480" workMultiplier="5" fieldMultiplier="2"/>
+    <washable dirtDuration="90" washDuration="1" workMultiplier="2" fieldMultiplier="2"/>
+    
+    <i3dMappings>
+        <i3dMapping id="rollercol" node="0>" />
+        <i3dMapping id="frame" node="0>0" />
+        <i3dMapping id="hitchcol" node="0>0|0" />
+        <i3dMapping id="hitchpin" node="0>0|1" />
+        <i3dMapping id="attacherJoint" node="0>0|1|0" />
+        <i3dMapping id="rollerframe" node="0>0|2" />
+        <i3dMapping id="roller" node="0>0|2|0" />
+        <i3dMapping id="rollerwheel" node="0>0|2|1" />
+        <i3dMapping id="wheelLeft" node="0>0|4" />
+        <i3dMapping id="wheelRight" node="0>0|5" />
+        <i3dMapping id="heightNode" node="0>0|3" />
+    </i3dMappings>
+</vehicle>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<modDesc descVersion="105">
+    <author>Anthony</author>
+    <version>1.0.0.0</version>
+    <title>
+        <en>Storage Booster</en>
+        <hr>Pojacivac Skladista</hr>
+        <de>Lager Booster</de>
+    </title>
+    <description>
+        <en>Selectively boost storage capacities on individual placeables.
+
+Console commands (open with ~ key):
+  sbScan         - Scan and list all placeables with storages
+  sbBoost ID MUL - Boost placeable #ID by MULx (e.g. sbBoost 3 10)
+  sbReset ID     - Reset placeable #ID to original capacity
+  sbResetAll     - Reset everything
+  sbStatus       - Show all boosted placeables</en>
+        <hr>Selektivno povecaj kapacitete skladista na pojedinacnim placeablima.
+
+Konzolne komande (otvori sa ~ tipkom):
+  sbScan         - Skeniraj i pokazi sve placeable sa skladistima
+  sbBoost ID MUL - Pojacaj placeable #ID za MULx (npr. sbBoost 3 10)
+  sbReset ID     - Vrati placeable #ID na originalni kapacitet
+  sbResetAll     - Vrati sve na originalno
+  sbStatus       - Pokazi sve pojacane placeablove</hr>
+    </description>
+    <iconFilename>icon_storageBooster.dds</iconFilename>
+    <multiplayer supported="true" />
+
+    <extraSourceFiles>
+        <sourceFile filename="storageBooster.lua" />
+    </extraSourceFiles>
+</modDesc>

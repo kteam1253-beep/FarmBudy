@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<light xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../../../shared/xml/schema/sharedLight.xsd">
+    <filename>lights/lightbar.i3d</filename>
+    <rootNode node="0"/>
+    <staticLightCompound>
+        <node node="0|0|0" intensity="5"/>
+        <node node="0|0|0|0" intensity="1"/>
+        <function name="WORK_LIGHT_BACK" uvSlotIndex="1"/>
+    </staticLightCompound>
+    <rotationNode name="rotationNode1" node="0|0"/>
+</light>

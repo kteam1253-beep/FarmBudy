@@ -1,0 +1,288 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<modDesc descVersion="101" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://validation.gdn.giants-software.com/xml/fs25/modDesc.xsd">
+    <author>Bcbuhler, ATFarms, Green Acres Modding</author>
+    <version>1.1.0.0</version>
+    
+	<title>
+        <en>AGCO Swather Pack</en>
+        <de>AGCO Schwadmäher-Pack</de>
+        <hr>AGCO Paket kosilica za otkos</hr>
+    </title>
+    
+	<description>
+        <en><![CDATA[The Swather Pack is back with 6 brand options including Agco, Case IH, Challenger, Hesston, Massey Ferguson and New Idea. All of your favourite features from the FS22 version are here with some improvements done as it was converted as well.
+
+Swather:
+- Brand and Model options for  Agco 9365, Case IH 8860HP, Challenger SP165 and SP185C, Hesston 8550 and 9240, Massey Ferguson 5140 and 9635 and New Idea 5850
+- 7 Wheel options
+- GPS option
+
+Price: $100,000
+Power: 110-190hp
+
+Razor Bar 16' + Twin Max Conditioner:
+- Color options for Agco, Agco Red, Case IH, Challenger, Hesston, Massey Ferguson and New Idea
+- Ability to condition hay to remove the need for tedding. This option is done through a separate tool which can be removed for normal mowing of grass.
+
+Price: $24,500
+Working width: 4.9 M
+Working speed: 25 kph
+
+5200 30' Draper:
+- Color options for Agco, Agco Red, Case IH, Challenger, Hesston, Massey Ferguson and New Idea
+- Ability to choose where swath comes out of header: Left, Right or Center
+- Decal option
+
+Price: $25,000
+Working width: 9.2 M
+Working speed: 15 kph
+
+5200 30' Mower:
+- Functions as standard mower for cutting Grass
+- Color options for Agco, Agco Red, Case IH, Challenger, Hesston, Massey Ferguson and New Idea
+- Ability to choose where swath comes out of header: Left, Right or Center
+- Decal option
+
+Price: $25,000
+Working width: 9.2 M
+Working speed: 15 kph
+
+Elmer's Mfg ST36:
+- Swather transport for moving longer distances
+
+Price: $2,000
+
+Swath Roller:
+- Swath roller for canola to keep swaths from blowing and shattering in the wind in real life
+- No function ingame 
+
+Price: $2,000
+
+Changelog Version 1.1.0.0
+- Added manual height adjustment for Razor Bar header when lowered
+- Various visual fixes and improvements]]></en>
+        <de><![CDATA[Das Schwader-Paket ist zurück und bietet sechs Markenoptionen, darunter Agco, Case IH, Challenger, Hesston, Massey Ferguson und New Idea. Alle beliebten Funktionen der FS22-Version sind vorhanden, mit einigen Verbesserungen, die durch die Konvertierung vorgenommen wurden.
+
+Schwader:
+– Marken- und Modelloptionen für Agco 9365, Case IH 8860 PS, Challenger SP165 und SP185C, Hesston 8550 und 9240, Massey Ferguson 5140 und 9635 sowie New Idea 5850
+– Sechs Radoptionen
+– GPS-Option
+
+Preis: 100.000 €
+Leistung: 110–190 PS
+
+Razor Bar 16' + Twin Max Conditioner:
+– Farboptionen für Agco, Agco Red, Case IH, Challenger, Hesston, Massey Ferguson und New Idea
+– Möglichkeit zur Heuaufbereitung, um das Zetten überflüssig zu machen. Diese Option wird über ein separates Werkzeug bedient, das zum normalen Rasenmähen abgenommen werden kann.
+
+Preis: 24.500 €
+Arbeitsbreite: 4,9 m
+Arbeitsgeschwindigkeit: 25 km/h
+
+5200 30' Draper:
+- Farboptionen für Agco, Agco Red, Case IH, Challenger, Hesston, Massey Ferguson und New Idea
+- Wahl der Schwadaustrittsrichtung: Links, Rechts oder Mitte
+- Aufkleberoption
+
+Preis: 25.000 €
+Arbeitsbreite: 9,2 m
+Arbeitsgeschwindigkeit: 15 km/h
+
+5200 9M Mähwerk:
+– Funktioniert als Standardmäher zum Mähen von Gras.
+- Farboptionen für Agco, Agco Red, Case IH, Challenger, Hesston, Massey Ferguson und New Idea
+- Wahl der Schwadaustrittsrichtung: Links, Rechts oder Mitte
+- Aufkleberoption
+
+Preis: 25.000 €
+Arbeitsbreite: 9,2 m
+Arbeitsgeschwindigkeit: 15 km/h
+
+Elmers Mfg ST36:
+- Schwadmäher-Transportwagen für längere Distanzen
+
+Preis: 2 000 €
+
+Schwadwalze:
+– Schwadwalze für Raps, um Schwaden im realen Leben vor dem Verwehen und Zerreißen durch den Wind zu schützen.
+– Keine Funktion im Spiel.
+
+Preis: 2.000 €
+
+Änderungsprotokoll Version 1.1.0.0
+– Manuelle Höhenanpassung für die Razor Bar-Kopfzeile beim Absenken hinzugefügt.
+– Diverse visuelle Korrekturen und Verbesserungen]]></de>
+        <fr><![CDATA[Le pack Andaineur est de retour avec 6 options de marque, dont Agco, Case IH, Challenger, Hesston, Massey Ferguson et New Idea. Retrouvez toutes vos fonctionnalités préférées de la version FS22, avec quelques améliorations apportées lors de sa conversion.
+
+Andaineur :
+- Options de marque et de modèle pour Agco 9365, Case IH 8860 ch, Challenger SP165 et SP185C, Hesston 8550 et 9240, Massey Ferguson 5140 et 9635 et New Idea 5850
+- Options de 7 roues
+- Option GPS
+
+Prix : 100 000 €
+Puissance : 110-190 ch
+
+Barre Razor 16' + Conditionneur Twin Max :
+- Options de couleur pour Agco, Agco Red, Case IH, Challenger, Hesston, Massey Ferguson et New Idea
+- Possibilité de conditionner le foin sans fanage. Cette option s'effectue via un outil séparé, amovible pour la tonte normale de l'herbe.
+
+Prix : 24 500 €
+Largeur de travail : 4,9 m
+Vitesse de travail : 25 km/h
+
+Tapis 5200 de 9,1 m :
+- Couleurs disponibles : Agco, Agco Red, Case IH, Challenger, Hesston, Massey Ferguson et New Idea
+- Choix de la sortie d'andain de la barre de coupe : gauche, droite ou centre
+- Autocollant disponible en option
+
+Prix : 25 000 €
+Largeur de travail : 9,2 m
+Vitesse de travail : 15 km/h
+
+Tondeuse 5200 9 m :
+- Fonctionne comme une tondeuse standard pour tondre l'herbe
+- Couleurs disponibles : Agco, Agco Red, Case IH, Challenger, Hesston, Massey Ferguson et New Idea
+- Choix de l'orientation de l'andain de la barre de coupe : gauche, droite ou centre
+- Autocollant en option
+
+Prix : 25 000 €
+Largeur de travail : 9,2 m
+Vitesse de travail : 15 km/h
+
+Elmer's Mfg ST36 :
+- Transport d'andaineur pour se déplacer sur de plus longues distances
+
+Prix ​​: 2 000 €
+
+Rouleau d'andainage :
+- Rouleau d'andainage pour le colza, empêchant les andains de s'envoler et de s'émietter sous l'effet du vent dans la réalité.
+- Aucune fonction dans le jeu.
+
+Prix : 2 000 €
+
+Journal des modifications version 1.1.0.0
+- Ajout d'un réglage manuel de la hauteur de la barre de rasoir lorsqu'elle est abaissée
+- Diverses corrections et améliorations visuelles]]></fr>
+        <hr><![CDATA[Paket kosilica za otkos vraća se sa 6 opcija brendova uključujući Agco, Case IH, Challenger, Hesston, Massey Ferguson i New Idea. Sve vaše omiljene značajke iz FS22 verzije su tu, uz neka poboljšanja napravljena tijekom konverzije.
+
+Kosilica za otkos:
+- Opcije brendova i modela za Agco 9365, Case IH 8860HP, Challenger SP165 i SP185C, Hesston 8550 i 9240, Massey Ferguson 5140 i 9635 te New Idea 5850
+- 7 opcija kotača
+- GPS opcija
+
+Cijena: 100.000 €
+Snaga: 110-190 KS
+
+Razor Bar 16' + Twin Max Kondicioner:
+- Opcije boja za Agco, Agco crvena, Case IH, Challenger, Hesston, Massey Ferguson i New Idea
+- Mogućnost kondicioniranja sijena kako bi se uklonila potreba za okretanjem. Ova opcija se koristi preko zasebnog alata koji se može ukloniti za normalno košenje trave.
+
+Cijena: 24.500 €
+Radna širina: 4,9 m
+Radna brzina: 25 km/h
+
+5200 30' Draper:
+- Opcije boja za Agco, Agco crvena, Case IH, Challenger, Hesston, Massey Ferguson i New Idea
+- Mogućnost odabira izlaza otkosa: Lijevo, Desno ili Sredina
+- Opcija naljepnice
+
+Cijena: 25.000 €
+Radna širina: 9,2 m
+Radna brzina: 15 km/h
+
+5200 30' Kosilica:
+- Funkcionira kao standardna kosilica za košenje trave
+- Opcije boja za Agco, Agco crvena, Case IH, Challenger, Hesston, Massey Ferguson i New Idea
+- Mogućnost odabira izlaza otkosa: Lijevo, Desno ili Sredina
+- Opcija naljepnice
+
+Cijena: 25.000 €
+Radna širina: 9,2 m
+Radna brzina: 15 km/h
+
+Elmer's Mfg ST36:
+- Transport kosilice za duže udaljenosti
+
+Cijena: 2.000 €
+
+Valjak za otkos:
+- Valjak za otkos uljane repice kako bi se otkosi zadržali od odnošenja vjetrom u stvarnom životu
+- Nema funkciju u igri
+
+Cijena: 2.000 €
+
+Zapis promjena verzija 1.1.0.0
+- Dodano ručno podešavanje visine za Razor Bar glavu kada je spuštena
+- Razni vizualni popravci i poboljšanja]]></hr>
+    </description>
+    
+	<iconFilename>icon_SwatherPack.dds</iconFilename>
+    
+	<multiplayer supported="true"/>
+    
+	<storeItems>
+        <storeItem xmlFilename="swather.xml"/>
+        <storeItem xmlFilename="hayheadcombo.xml"/>
+        <storeItem xmlFilename="draper.xml"/>
+		<storeItem xmlFilename="draper2.xml"/>
+		<storeItem xmlFilename="transport.xml"/>
+		<storeItem xmlFilename="roller.xml"/>
+    </storeItems>
+	
+	<vehicleTypes>
+		<type name="swather" parent="tractor" className="Vehicle" filename="$dataS/scripts/vehicles/Vehicle.lua">
+			<specialization name="attachable"/>
+		</type>
+	</vehicleTypes>
+	
+	<missionVehicles filename="missionVehicles.xml"/>
+	
+	<jointTypes>
+        <jointType name="swather"/>
+    </jointTypes>
+	
+	<materialTemplates>
+		<template name="HESSTON_RED" 		title="$l10n_hesston_red" 			usage="2" colorScale="0.238 0.041 0.014" parentTemplate="calibratedGlossPaint"/>
+		<template name="NEWIDEA_RED" 		title="$l10n_ni_red" 			usage="2" colorScale="0.552 0.061 0.017" parentTemplate="calibratedGlossPaint"/>
+		<template name="AGCO_RED" 		title="$l10n_agco_red" 			usage="2" colorScale="0.462 0.050 0.002" parentTemplate="calibratedGlossPaint"/>
+		<template name="ELMER_BLACK" 		title="$l10n_elmer_black" 			usage="2" colorScale="0.02 0.02 0.02" parentTemplate="calibratedGlossPaint"/>
+	</materialTemplates>
+    
+	<l10n>
+		<text name="hesston_red">
+            <en>Hesston Red</en>
+            <de>Hesston Rot</de>
+            <hr>Hesston crvena</hr>
+        </text>
+		<text name="agco_red">
+            <en>Agco Red</en>
+            <de>Agco Rot</de>
+            <hr>Agco crvena</hr>
+        </text>
+		<text name="ni_red">
+            <en>New Idea Red</en>
+            <de>New Idea Rot</de>
+            <hr>New Idea crvena</hr>
+        </text>
+		<text name="elmer_black">
+            <en>Elmer Black</en>
+            <de>Elmer Schwarz</de>
+            <hr>Elmer crna</hr>
+        </text>
+        <text name="configuration_decal">
+            <en>Decal</en>
+            <de>Aufkleber</de>
+            <hr>Naljepnica</hr>
+        </text>
+        <text name="configuration_yes">
+            <en>Yes</en>
+            <de>Ja</de>
+            <hr>Da</hr>
+        </text>
+        <text name="typeDesc_swather">
+            <en>Draper</en>
+            <de>Draper</de>
+            <hr>Žetvena platforma</hr>
+        </text>
+     </l10n>
+</modDesc>

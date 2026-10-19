@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<missionVehicles xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../bin/shared/xml/schema/missionVehicles.xsd">
+    <mission type="mowMission">
+		<group size="small">
+			<vehicle filename="swather.xml">
+				<configuration name="baseColor" id="2"/>
+				<configuration name="designColor2" id="3"/>
+				<configuration name="designColor" id="3"/>
+				<configuration name="design" id="8"/>
+				<configuration name="rimColor" id="3"/>
+				<configuration name="motor" id="2"/>
+			</vehicle>
+			<vehicle filename="hayhead.xml">
+				<configuration name="design" id="4"/>
+			</vehicle>
+		</group>
+		<group size="small">
+			<vehicle filename="swather.xml">
+				<configuration name="baseColor" id="2"/>
+				<configuration name="designColor2" id="4"/>
+				<configuration name="designColor" id="4"/>
+				<configuration name="design" id="9"/>
+				<configuration name="rimColor" id="2"/>
+				<configuration name="motor" id="1"/>
+			</vehicle>
+			<vehicle filename="draper2.xml">
+				<configuration name="design" id="5"/>
+			</vehicle>
+		</group>
+		<group size="medium">
+			<vehicle filename="swather.xml">
+				<configuration name="baseColor" id="1"/>
+				<configuration name="designColor2" id="2"/>
+				<configuration name="designColor" id="2"/>
+				<configuration name="design" id="4"/>
+				<configuration name="rimColor" id="1"/>
+				<configuration name="motor" id="3"/>
+			</vehicle>
+			<vehicle filename="hayhead.xml">
+				<configuration name="design" id="3"/>
+			</vehicle>
+		</group>
+		<group size="medium">
+			<vehicle filename="swather.xml">
+				<configuration name="baseColor" id="2"/>
+				<configuration name="designColor2" id="1"/>
+				<configuration name="designColor" id="1"/>
+				<configuration name="design" id="1"/>
+				<configuration name="rimColor" id="3"/>
+				<configuration name="motor" id="1"/>
+			</vehicle>
+			<vehicle filename="draper2.xml">
+				<configuration name="design" id="2"/>
+			</vehicle>
+		</group>
+		<group size="large">
+			<vehicle filename="swather.xml">
+				<configuration name="baseColor" id="1"/>
+				<configuration name="designColor2" id="2"/>
+				<configuration name="designColor" id="6"/>
+				<configuration name="design" id="7"/>
+				<configuration name="rimColor" id="3"/>
+				<configuration name="motor" id="3"/>
+			</vehicle>
+			<vehicle filename="hayhead.xml">
+				<configuration name="design" id="7"/>
+			</vehicle>
+		</group>
+		<group size="large">
+			<vehicle filename="swather.xml">
+				<configuration name="baseColor" id="2"/>
+				<configuration name="designColor2" id="3"/>
+				<configuration name="designColor" id="3"/>
+				<configuration name="design" id="8"/>
+				<configuration name="rimColor" id="3"/>
+				<configuration name="motor" id="2"/>
+			</vehicle>
+			<vehicle filename="hayhead.xml">
+				<configuration name="design" id="4"/>
+			</vehicle>
+
+		</group>
+	</mission>
+</missionVehicles>

@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<vehicle type="mower" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://validation.gdn.giants-software.com/xml/fs25/vehicle.xsd">
+    <annotation>Copyright (C) GIANTS Software GmbH, All Rights Reserved.</annotation>
+
+    <storeData>
+        <name>Razor Bar 16'</name>
+        <specs>
+            <neededPower>100</neededPower>
+            <workingWidth>4.9</workingWidth>
+            <fruitTypeCategories>MOWER</fruitTypeCategories>
+            <combination xmlFilename="swather.xml"/>
+        </specs>
+        <functions>
+            <function>$l10n_function_cutterWindrowerGrass</function>
+        </functions>
+        <image>store_hayhead.png</image>
+        <price>22000</price>
+        <lifetime>600</lifetime>
+        <rotation>0</rotation>
+        <brand>AGCO</brand>
+        <category>mowers combineWindrower</category>
+        <shopTranslationOffset>0 0 0</shopTranslationOffset>
+        <shopRotationOffset>0 0 0</shopRotationOffset>
+    </storeData>
+
+    <base>
+        <typeDesc>$l10n_typeDesc_mower</typeDesc>
+        <filename>hayhead.i3d</filename>
+        <size width="5.0" length="1.5" height="1.35" lengthOffset="0.1"/>
+        <speedLimit value="25"/>
+        <components>
+            <component centerOfMass="0 0.2 0" solverIterationCount="10" mass="2000"/>
+        </components>
+        <schemaOverlay attacherJointPosition="0 0" name="IMPLEMENT"/>
+        <mapHotspot type="TOOL"/>
+    </base>
+
+    <powerConsumer ptoRpm="470" neededMinPtoPower="40" neededMaxPtoPower="60"/>
+    
+    <lights>
+        <sharedLight linkNode="lightl1" filename="$data/shared/assets/lights/lizard/rearLight19Orange_left.xml"/>
+        <sharedLight linkNode="lightr1" filename="$data/shared/assets/lights/lizard/rearLight19Orange_right.xml"/>
+
+        <realLights>
+            <low>
+            </low>
+            <high>
+                <turnLightLeft node="turnLightLeftFront"/>
+                <turnLightRight node="turnLightRightFront"/>
+            </high>
+        </realLights>
+    </lights>
+
+    <groundReferenceNodes>
+        <groundReferenceNode node="heightNode" threshold="1"/>
+    </groundReferenceNodes>
+
+    <workAreas>
+        <workArea type="mower" functionName="processMowerArea" disableBackwards="true">
+            <area startNode="workAreaStart" widthNode="workAreaWidth" heightNode="workAreaHeight"/>
+            <groundReferenceNode index="1"/>
+            <mower dropWindrow="true" dropAreaIndex="2"/>
+            <onlyActiveWhenLowered value="true"/>
+        </workArea>
+
+        <workArea type="auxiliary">
+            <area startNode="dropAreaStart" widthNode="dropAreaWidth" heightNode="dropAreaHeight"/>
+        </workArea>
+    </workAreas>
+
+    <attachable>
+        <inputAttacherJoints>
+            <inputAttacherJoint node="attacherJoint2" jointType="cutter" topReferenceNode="topLinkNode">
+				<subType name="disc" subTypeShowWarning="false"/>
+                <distanceToGround lower="-0.05" upper="0.2"/>
+                <heightNode node="heightNode"/>
+                <heightNode node="heightNode2"/>
+                <heightNode node="heightNode3"/>
+                <dependentAttacherJoint attacherJointIndex="1"/>
+                <objectChange node="hosesattach" visibilityActive="false" visibilityInactive="true"/>
+            </inputAttacherJoint>
+        </inputAttacherJoints>
+        <support animationName="support"/>
+    </attachable>
+    
+    <attacherJoints>
+        <attacherJoint jointType="implement" node="attachercrimper" upperRotationOffset="0" lowerRotationOffset="0" upperRotLimit="0 0 0" lowerRotLimit="0 0 0" lowerTransLimit="0 0 0" lockDownTransLimit="false" moveTime="2.5" comboTime="0">
+            <distanceToGround lower="0.1" upper="0.15"/>
+            <schema position="1 0" rotation="0" invertX="false"/>
+            <subType name="crimper"/>
+        </attacherJoint>
+    </attacherJoints>
+    
+    <connectionHoses>
+        <hose inputAttacherJointIndices="1" type="hydraulicIn" node="hydraulicIn01" length="0.8" diameter="0.015" outgoingAdapter="DEFAULT" adapterType="NONE" socket="NONE"/>
+        <hose inputAttacherJointIndices="1" type="hydraulicOut" node="hydraulicOut01" length="0.8" diameter="0.015" outgoingAdapter="DEFAULT" adapterType="NONE" socket="NONE"/>
+        <hose inputAttacherJointIndices="1" type="hydraulicIn" node="hydraulicIn02" length="0.8" diameter="0.015" outgoingAdapter="DEFAULT" adapterType="NONE" socket="NONE"/>
+        <hose inputAttacherJointIndices="1" type="hydraulicOut" node="hydraulicOut02" length="0.8" diameter="0.015" outgoingAdapter="DEFAULT" adapterType="NONE" socket="NONE"/>
+    </connectionHoses>
+	
+	<cylindered>
+        <movingTools>
+            <movingTool node="heightNode" playSound="false">
+                <controls axis="AXIS_CUTTER_REEL2" invertAxis="true" mouseSpeedFactor="0.25" iconName="REEL_TRANSLATE_Y"/>
+				<translation transSpeed="0.2" transAcceleration="50" transMax="0.1" transMin="-0.2" translationAxis="2" startTrans="-0.1"/>
+			</movingTool>
+        </movingTools>
+    </cylindered>
+    
+
+    <mower fruitTypeConverter="MOWER">
+        <animationNodes>
+            <animationNode node="drum01" rotSpeed="-2000" rotAxis="2" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="drum02" rotSpeed="-2000" rotAxis="2" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="drum03" rotSpeed="-2000" rotAxis="2" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="drum04" rotSpeed="-2000" rotAxis="2" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="drum05" rotSpeed="-2000" rotAxis="2" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="drum06" rotSpeed="2000" rotAxis="2" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="drum07" rotSpeed="2000" rotAxis="2" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="drum08" rotSpeed="2000" rotAxis="2" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="drum09" rotSpeed="2000" rotAxis="2" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="drum10" rotSpeed="2000" rotAxis="2" turnOnFadeTime="3" turnOffFadeTime="5"/>
+        </animationNodes>
+
+        <dropEffects>
+            <dropEffect workAreaIndex="1" dropAreaIndex="2">
+                <effectNode effectClass="TypedMotionPathEffect" effectType="MOWER" linkNode="mowerEffectNode">
+                    <motionPathEffect textureFilename="$data/vehicles/samasz/xt390/mowerEffectArray.dds" numRows="6" rowLength="11" minFade="0.15" shapeScale="1" maxShapeScale="1.3"/>
+                </effectNode>
+                <effectNode effectNode="smokeEmitter" effectClass="ParticleEffect" particleType="smoke" materialType="smokeParticle" worldSpace="false" emitCountScale="0.25"/>
+            </dropEffect>
+        </dropEffects>
+        <sounds>
+            <cut template="mowerToolWork_01"/>
+        </sounds>
+    </mower>
+	
+	<windBending>
+        <windBendingNodes>
+            <windBendingNode node="windBending" maxBending="0.1" maxBendingSpeed="20"/>
+        </windBendingNodes>
+    </windBending>
+
+    <turnOnVehicle turnOffIfNotAllowed="true">
+        <sounds>
+            <start template="mowerToolStart_01" volumeScale="1.8" pitchScale="1" />
+            <work template="mowerToolLoop_01" volumeScale="1.8" pitchScale="1" />
+            <stop template="mowerToolStop_01" volumeScale="2.1" pitchScale="1"/>
+        </sounds>
+    </turnOnVehicle>
+
+    <ai>
+        <needsLowering value="true"/>
+        <areaMarkers leftNode="aiMarkerLeft" rightNode="aiMarkerRight" backNode="aiMarkerBack"/>
+        <collisionTrigger node="aiCollisionNode" width="4.9" height="1.2"/>
+        <agentAttachment width="2.3" height="1.2" length="1.2" lengthOffset="0.15"/>
+    </ai>
+
+    <foliageBending>
+        <bendingNode minX="-2.6" maxX="2.6" minZ="-0.7" maxZ="1.1" yOffset="0.2"/>
+    </foliageBending>
+    
+    <designConfigurations title="$l10n_ui_brands">
+        <designConfiguration name="Agco" price="0" vehicleBrand="AGCO">
+            <material materialSlotName="db_calibratedPaintMat" materialTemplateName="MCCULLOCH_GREY2"/>
+        </designConfiguration>
+        <designConfiguration name="Case" price="0" vehicleBrand="CASEIH">
+            <material materialSlotName="db_calibratedPaintMat" materialTemplateName="CASEIH_RED1"/>
+        </designConfiguration>
+        <designConfiguration name="Massey Ferguson" price="0" vehicleBrand="MASSEYFERGUSON">
+            <material materialSlotName="db_calibratedPaintMat" materialTemplateName="MASSEYFERGUSON_RED"/>
+        </designConfiguration>
+        <designConfiguration name="Challenger" price="0" vehicleBrand="CHALLENGER">
+            <material materialSlotName="db_calibratedPaintMat" materialTemplateName="CHALLENGER_YELLOW1"/>
+        </designConfiguration>
+        <designConfiguration name="Hesston" price="0" vehicleBrand="AGCO">
+            <material materialSlotName="db_calibratedPaintMat" materialTemplateName="HESSTON_RED"/>
+        </designConfiguration>
+		<designConfiguration name="New Idea" price="0" vehicleBrand="AGCO">
+            <material materialSlotName="db_calibratedPaintMat" materialTemplateName="NEWIDEA_RED"/>
+        </designConfiguration>
+		<designConfiguration name="Agco" price="0" vehicleBrand="AGCO">
+            <material materialSlotName="db_calibratedPaintMat" materialTemplateName="AGCO_RED"/>
+        </designConfiguration>
+    </designConfigurations>
+
+    <wearable wearDuration="480" workMultiplier="5" fieldMultiplier="2"/>
+    <washable dirtDuration="90" washDuration="1" workMultiplier="4" fieldMultiplier="2"/>
+
+    <i3dMappings>
+        <i3dMapping id="main_component1" node="0>"/>
+        <i3dMapping id="head_vis" node="0>0"/>
+        <i3dMapping id="topLinkNode" node="0>0|0|0"/>
+        <i3dMapping id="attacherJoint2" node="0>0|0|1"/>
+        <i3dMapping id="hydraulicIn01" node="0>0|0|2"/>
+        <i3dMapping id="hydraulicOut01" node="0>0|0|3"/>
+        <i3dMapping id="hydraulicIn02" node="0>0|0|4"/>
+        <i3dMapping id="hydraulicOut02" node="0>0|0|5"/>
+        <i3dMapping id="hosesattach" node="0>0|0|6"/>
+        <i3dMapping id="attachercrimper" node="0>0|0|8"/>
+        <i3dMapping id="drum01" node="0>0|1|0|0"/>
+        <i3dMapping id="drum02" node="0>0|1|0|1"/>
+        <i3dMapping id="drum03" node="0>0|1|0|2"/>
+        <i3dMapping id="drum04" node="0>0|1|0|3"/>
+        <i3dMapping id="drum05" node="0>0|1|0|4"/>
+        <i3dMapping id="drum06" node="0>0|1|0|5"/>
+        <i3dMapping id="drum07" node="0>0|1|0|6"/>
+        <i3dMapping id="drum08" node="0>0|1|0|7"/>
+        <i3dMapping id="drum09" node="0>0|1|0|8"/>
+        <i3dMapping id="drum10" node="0>0|1|0|9"/>
+        <i3dMapping id="lightl1" node="0>0|5|0|0"/>
+        <i3dMapping id="lightr1" node="0>0|5|0|1"/>
+        <i3dMapping id="turnLightLeftFront" node="0>0|5|1|0|0"/>
+        <i3dMapping id="turnLightRightFront" node="0>0|5|1|1|0"/>
+        <i3dMapping id="workAreaStart" node="0>0|2|0"/>
+        <i3dMapping id="workAreaWidth" node="0>0|2|1"/>
+        <i3dMapping id="workAreaHeight" node="0>0|2|2"/>
+        <i3dMapping id="dropAreaStart" node="0>0|2|3"/>
+        <i3dMapping id="dropAreaWidth" node="0>0|2|4"/>
+        <i3dMapping id="dropAreaHeight" node="0>0|2|5"/>
+        <i3dMapping id="heightNode" node="0>0|2|6"/>
+        <i3dMapping id="heightNode2" node="0>0|2|7"/>
+        <i3dMapping id="heightNode3" node="0>0|2|8"/>
+        <i3dMapping id="mowerEffectNode" node="0>0|3|0"/>
+        <i3dMapping id="smokeEmitter" node="0>0|3|1"/>
+        <i3dMapping id="aiMarkerLeft" node="0>0|4|0"/>
+        <i3dMapping id="aiMarkerRight" node="0>0|4|1"/>
+        <i3dMapping id="aiMarkerBack" node="0>0|4|2"/>
+        <i3dMapping id="aiCollisionNode" node="0>0|4|3"/>
+		<i3dMapping id="windBending" node="0>0|7"/>
+    </i3dMappings>
+</vehicle>

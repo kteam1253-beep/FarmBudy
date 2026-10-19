@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<storageBooster>
+    <!--
+        StorageBooster - Author: Anthony
+
+        Ovaj mod koristi konzolne komande za selektivno pojacavanje.
+        Nema globalnog mnozitelja - ti biras sto zelis pojacati.
+
+        Komande (konzola se otvara sa ~ tipkom):
+          sbScan           - Pokazi sve placeablove sa skladistima
+          sbBoost ID MUL   - Pojacaj #ID za MULx (npr. sbBoost 3 10)
+          sbReset ID       - Vrati #ID na original
+          sbResetAll       - Vrati sve
+          sbStatus         - Pokazi pojacane
+    -->
+</storageBooster>

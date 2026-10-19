@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<vehicle type="tedder" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://validation.gdn.giants-software.com/xml/fs25/vehicle.xsd">
+    <annotation>Copyright (C) GIANTS Software GmbH, All Rights Reserved.</annotation>
+
+    <storeData>
+        <name>Twin Max Conditioner</name>
+        <specs>
+            <workingWidth>2.0</workingWidth>
+            <neededPower>15</neededPower>
+        </specs>
+        <functions>
+            <function>$l10n_function_tedder</function>
+        </functions>
+        <image>store_hayhead.png</image>
+        <price>2500</price>
+        <lifetime>600</lifetime>
+        <rotation>0</rotation>
+        <brand>AGCO</brand>
+        <category>mowers combineWindrower</category>
+        <shopTranslationOffset>0 -0.047 0</shopTranslationOffset>
+        <shopRotationOffset>13.051 0 0</shopRotationOffset>
+        <shopHeight>4</shopHeight>
+    </storeData>
+
+    <base>
+        <typeDesc>$l10n_typeDesc_tedder</typeDesc>
+        <filename>hayheadcrimper.i3d</filename>
+        <size width="4" length="3" height="1.35"/>
+        <speedLimit value="25"/>
+        <components>
+            <component centerOfMass="0 0.3 0" solverIterationCount="10" mass="300"/>
+        </components>
+        <schemaOverlay attacherJointPosition="0 0" name="IMPLEMENT"/>
+        <mapHotspot type="TOOL"/>
+    </base>
+
+    <powerConsumer ptoRpm="400" neededMinPtoPower="15" neededMaxPtoPower="15"/>
+
+    <attachable>
+        <inputAttacherJoints>
+            <inputAttacherJoint node="attacherJoint" jointType="implement" forceSelectionOnAttach="false" allowDetachWhileParentLifted="false">
+                <distanceToGround lower="0.1" upper="0.1"/>
+                <subType name="crimper"/>
+            </inputAttacherJoint>
+        </inputAttacherJoints>
+        <support animationName="moveSupport" delayedOnLoad="true"/>
+    </attachable>
+
+    <groundReferenceNodes>
+        <groundReferenceNode node="groundref" forceFactor="1" threshold="1" depthNode="groundref"/>
+    </groundReferenceNodes>
+
+    <workAreas>
+        <workArea type="tedder" functionName="processTedderArea" preprocessFunctionName="preprocessTedderArea" disableBackwards="true">
+            <area startNode="workAreaLeftStart" widthNode="workAreaLeftWidth" heightNode="workAreaLeftHeight"/>
+            <groundReferenceNode index="1"/>
+            <tedder dropWindrowWorkAreaIndex="2"/>
+            <onlyActiveWhenLowered value="true"/>
+        </workArea>
+
+        <workArea type="auxiliary">
+            <area startNode="dropAreaLeftStart" widthNode="dropAreaLeftWidth" heightNode="dropAreaLeftHeight"/>
+        </workArea>
+    </workAreas>
+
+    <animations>
+        <animation name="moveSupport">
+            <part node="roller_vis" direction="-1" startTime="0" endTime="0.01" visibility="true"/>
+            <part node="roller_vis" direction="1" startTime="0.01" endTime="0.5" visibility="false"/>
+            <part node="pallet_vis" direction="-1" startTime="0" endTime="0.01" visibility="false"/>
+            <part node="pallet_vis" direction="1" startTime="0.01" endTime="0.5" visibility="true"/>
+            <part node="pallet_col" startTime="0.01" endTime="0.5" startScale="0 0 0" endScale="1 1 1" />
+            <part node="pallet_col" startTime="0.01" endTime="0.5" startTrans="0 0.5 0" endTrans="0 0 0"/>
+        </animation>
+    </animations>
+
+    <tedder fillTypeConverter="TEDDER">
+        <animationNodes>
+            <animationNode node="roller1" rotSpeed="-2000" rotAxis="1" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="roller2" rotSpeed="-2000" rotAxis="1" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="roller3" rotSpeed="-2000" rotAxis="1" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="roller4" rotSpeed="2000" rotAxis="1" turnOnFadeTime="3" turnOffFadeTime="5"/>
+            <animationNode node="roller5" rotSpeed="2000" rotAxis="1" turnOnFadeTime="3" turnOffFadeTime="5"/>
+        </animationNodes>
+
+        <effects>
+            <effect workAreaIndex="1">
+                <effectNode effectClass="TypedMotionPathEffect" effectType="TEDDER" linkNode="particleLeft01">
+                    <motionPathEffect textureFilename="$data/effects/tedder/arrays/sharedTedderArrayLeft.dds" numRows="4" rowLength="28" minFade="0.03"/>
+                </effectNode>
+                <effectNode effectClass="TypedMotionPathEffect" effectType="TEDDER" linkNode="particleRight01">
+                    <motionPathEffect textureFilename="$data/effects/tedder/arrays/sharedTedderArrayRight.dds" numRows="4" rowLength="28" minFade="0.03"/>
+                </effectNode>
+            </effect>
+        </effects>
+    </tedder>
+
+    <turnOnVehicle turnedOnByAttacherVehicle="true">
+    </turnOnVehicle>
+    
+    <ai>
+        <agentAttachment width="2.3" height="1.2" length="1.2" lengthOffset="0.15"/>
+    </ai>
+    
+    <designConfigurations title="$l10n_ui_brands">
+        <designConfiguration name="Agco" price="0" vehicleBrand="AGCO">
+        </designConfiguration>
+        <designConfiguration name="Case" price="0" vehicleBrand="CASEIH">
+        </designConfiguration>
+        <designConfiguration name="Massey Ferguson" price="0" vehicleBrand="MASSEYFERGUSON">
+        </designConfiguration>
+        <designConfiguration name="Challenger" price="0" vehicleBrand="CHALLENGER">
+        </designConfiguration>
+        <designConfiguration name="Hesston" price="0" vehicleBrand="AGCO">
+        </designConfiguration>
+		<designConfiguration name="New Idea" price="0" vehicleBrand="AGCO">
+        </designConfiguration>
+		<designConfiguration name="Agco" price="0" vehicleBrand="AGCO">
+        </designConfiguration>
+    </designConfigurations>
+
+    <wearable wearDuration="480" workMultiplier="5" fieldMultiplier="2"/>
+    <washable dirtDuration="90" washDuration="1" workMultiplier="4" fieldMultiplier="2"/>
+
+    <i3dMappings>
+        <i3dMapping id="fanex904_main_component1" node="0>"/>
+        <i3dMapping id="pallet_vis" node="0>0"/>
+        <i3dMapping id="roller_vis" node="0>1"/>
+        <i3dMapping id="particleLeft01" node="0>1|5|6"/>
+        <i3dMapping id="particleRight01" node="0>1|5|7"/>
+        <i3dMapping id="dropAreaLeftStart" node="0>1|5|3"/>
+        <i3dMapping id="dropAreaLeftWidth" node="0>1|5|4"/>
+        <i3dMapping id="dropAreaLeftHeight" node="0>1|5|5"/>
+        <i3dMapping id="workAreaLeftStart" node="0>1|5|0"/>
+        <i3dMapping id="workAreaLeftWidth" node="0>1|5|1"/>
+        <i3dMapping id="workAreaLeftHeight" node="0>1|5|2"/>
+        <i3dMapping id="aiCollisionNode" node="0>3|0"/>
+        <i3dMapping id="startIndex" node="0>3|1"/>
+        <i3dMapping id="widthIndex" node="0>3|2"/>
+        <i3dMapping id="heightIndex" node="0>3|3"/>
+        <i3dMapping id="attacherJoint" node="0>2"/>
+        <i3dMapping id="roller1" node="0>1|0"/>
+        <i3dMapping id="roller2" node="0>1|1"/>
+        <i3dMapping id="roller3" node="0>1|2"/>
+        <i3dMapping id="roller4" node="0>1|3"/>
+        <i3dMapping id="roller5" node="0>1|4"/>
+        <i3dMapping id="groundref" node="0>4"/>
+		<i3dMapping id="pallet_col" node="0>5" />
+    </i3dMappings>
+</vehicle>

@@ -1,0 +1,23 @@
+{
+  "dashboard": {
+    "fieldsChannelId": "",
+    "fieldsMessageId": "",
+    "tasksChannelId": "",
+    "tasksMessageId": "",
+    "selectedField": null,
+    "page": 1
+  },
+  "fields": [],
+  "tasks": [],
+  "crops": [
+    "Pšenica",
+    "Ječam",
+    "Zob",
+    "Kukuruz",
+    "Suncokret",
+    "Soja",
+    "Uljana repica",
+    "Krumpir",
+    "Šećerna repa"
+  ]
+}

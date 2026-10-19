@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<light xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../../../shared/xml/schema/sharedLight.xsd">
+    <filename>lights/turnlight10.i3d</filename>
+    <rootNode node="0"/>
+    <staticLightCompound>
+        <node node="0" intensity="5"/>
+        <node node="0|0" intensity="1"/>
+		
+		<function name="TURN_LIGHT_RIGHT" uvSlotIndex="1" intensityScale="2"/>
+    </staticLightCompound>
+</light>

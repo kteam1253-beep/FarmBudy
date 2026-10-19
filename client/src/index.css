@@ -1,0 +1,159 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'DM Sans', sans-serif;
+  --font-display: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Elegant Black & Gold Palette – Light Mode */
+  --background: 40 10% 96%;
+  --foreground: 40 10% 10%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 40 10% 10%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 40 10% 10%;
+
+  --primary: 43 96% 56%;
+  --primary-foreground: 0 0% 5%;
+
+  --secondary: 40 15% 90%;
+  --secondary-foreground: 40 10% 20%;
+
+  --muted: 40 10% 94%;
+  --muted-foreground: 40 10% 45%;
+
+  --accent: 43 80% 50%;
+  --accent-foreground: 0 0% 5%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 40 15% 88%;
+  --input: 40 15% 88%;
+  --ring: 43 96% 56%;
+
+  --radius: 0.75rem;
+}
+
+.dark {
+  /* Luxurious Black & Gold – Dark Mode */
+  --background: 220 15% 8%;
+  --foreground: 40 20% 95%;
+
+  --card: 220 15% 11%;
+  --card-foreground: 40 20% 95%;
+
+  --popover: 220 15% 11%;
+  --popover-foreground: 40 20% 95%;
+
+  --primary: 43 96% 56%;
+  --primary-foreground: 0 0% 5%;
+
+  --secondary: 220 15% 16%;
+  --secondary-foreground: 40 20% 90%;
+
+  --muted: 220 15% 15%;
+  --muted-foreground: 40 10% 55%;
+
+  --accent: 43 80% 50%;
+  --accent-foreground: 0 0% 5%;
+
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 220 10% 18%;
+  --input: 220 10% 18%;
+  --ring: 43 96% 56%;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    @apply font-bold tracking-tight text-foreground;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-card/80 backdrop-blur-md border border-border/50 shadow-sm;
+  }
+  
+  .status-indicator {
+    @apply relative flex h-3 w-3;
+  }
+
+  .status-ping {
+    @apply animate-ping absolute inline-flex h-full w-full rounded-full opacity-75;
+  }
+
+  .status-dot {
+    @apply relative inline-flex rounded-full h-3 w-3;
+  }
+
+  /* Hover glow effect for interactive cards */
+  .card-hover {
+    @apply transition-all duration-300 ease-out;
+  }
+  .card-hover:hover {
+    @apply shadow-lg shadow-primary/10 -translate-y-0.5 border-primary/30;
+  }
+
+  /* Button hover glow */
+  .btn-glow {
+    @apply transition-all duration-200;
+  }
+  .btn-glow:hover {
+    @apply shadow-md shadow-primary/25;
+  }
+
+  /* Tab trigger glow */
+  .tab-glow {
+    @apply transition-all duration-300 ease-out;
+  }
+  .tab-glow:hover {
+    text-shadow: 0 0 8px hsl(var(--primary) / 0.8), 0 0 16px hsl(var(--primary) / 0.4);
+    box-shadow: 0 0 12px hsl(var(--primary) / 0.3), inset 0 0 8px hsl(var(--primary) / 0.1);
+  }
+  .tab-glow[data-state='active'] {
+    text-shadow: 0 0 10px hsl(var(--primary) / 0.9), 0 0 20px hsl(var(--primary) / 0.5);
+    box-shadow: 0 0 16px hsl(var(--primary) / 0.4), inset 0 0 12px hsl(var(--primary) / 0.15);
+  }
+
+  /* Fade-in animation for cards */
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in {
+    animation: fadeSlideIn 0.3s ease-out forwards;
+  }
+
+  /* Pulse glow for sync / loading */
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4); }
+    50% { box-shadow: 0 0 12px 4px hsl(var(--primary) / 0.15); }
+  }
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+
+  /* Success flash */
+  @keyframes successFlash {
+    0% { background-color: hsl(var(--primary) / 0.3); }
+    100% { background-color: transparent; }
+  }
+  .animate-success {
+    animation: successFlash 0.8s ease-out;
+  }
+}

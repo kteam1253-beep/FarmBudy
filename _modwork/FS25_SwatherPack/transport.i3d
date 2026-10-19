@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+
+<i3D name="transport.i3d" version="1.6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://i3d.giants.ch/schema/i3d-1.6.xsd">
+  <Asset>
+    <Export program="GIANTS Editor 64bit" version="10.0.6"/>
+  </Asset>
+
+  <Files>
+    <File fileId="6" filename="$data/shaders/vehicleShader.xml"/>
+    <File fileId="3" filename="$data/shared/default_diffuse.dds"/>
+    <File fileId="8" filename="$data/shared/detailLibrary/flat_normal.png"/>
+    <File fileId="15" filename="$data/shared/detailLibrary/metallic/scratched_diffuse.png"/>
+    <File fileId="14" filename="$data/shared/detailLibrary/metallic/scratched_specular.png"/>
+    <File fileId="9" filename="$data/shared/detailLibrary/nonMetallic/metal/metalPainted_diffuse.png"/>
+    <File fileId="7" filename="$data/shared/detailLibrary/nonMetallic/metal/metalPainted_specular.png"/>
+    <File fileId="18" filename="$data/shared/detailLibrary/nonMetallic/reflector/reflector_diffuse.png"/>
+    <File fileId="17" filename="$data/shared/detailLibrary/nonMetallic/reflector/reflector_specular.png"/>
+    <File fileId="4" filename="textures/transport_normal.png"/>
+    <File fileId="5" filename="textures/transport_vMask.png"/>
+  </Files>
+
+
+  <Materials>
+    <Material name="black_metalPainted" materialId="5" customShaderId="6">
+      <Texture fileId="3"/>
+      <Normalmap fileId="4"/>
+      <Glossmap fileId="5"/>
+      <Custommap name="detailSpecular" fileId="7"/>
+      <Custommap name="detailNormal" fileId="8"/>
+      <Custommap name="detailDiffuse" fileId="9"/>
+      <CustomParameter name="colorScale" value="0.02 0.02 0.02"/>
+    </Material>
+    <Material name="col" materialId="6" diffuseColor="0.8 0.8 0.8 1" specularColor="0.494118 1 0">
+    </Material>
+    <Material name="lambert1" materialId="7" diffuseColor="0.494118 0.494118 0.494118 1">
+    </Material>
+    <Material name="reflectorRedMat" materialId="8" customShaderId="6">
+      <Texture fileId="3"/>
+      <Normalmap fileId="4"/>
+      <Glossmap fileId="5"/>
+      <Custommap name="detailSpecular" fileId="17"/>
+      <Custommap name="detailNormal" fileId="8"/>
+      <Custommap name="detailDiffuse" fileId="18"/>
+      <CustomParameter name="colorScale" value="0.634 0 0"/>
+      <CustomParameter name="clearCoatIntensity" value="0.25"/>
+      <CustomParameter name="clearCoatSmoothness" value="1"/>
+    </Material>
+    <Material name="reflectorWhiteMat" materialId="9" diffuseColor="0.8 0.8 0.8 1" specularColor="0.6 1 0" customShaderId="6">
+      <Custommap name="detailSpecular" fileId="17"/>
+      <Custommap name="detailNormal" fileId="8"/>
+      <Custommap name="detailDiffuse" fileId="18"/>
+      <CustomParameter name="colorScale" value="0.752 0.752 0.752"/>
+      <CustomParameter name="clearCoatIntensity" value="0.25"/>
+      <CustomParameter name="clearCoatSmoothness" value="1"/>
+    </Material>
+    <Material name="reflectorYellowMat" materialId="10" customShaderId="6">
+      <Texture fileId="3"/>
+      <Normalmap fileId="4"/>
+      <Glossmap fileId="5"/>
+      <Custommap name="detailSpecular" fileId="17"/>
+      <Custommap name="detailNormal" fileId="8"/>
+      <Custommap name="detailDiffuse" fileId="18"/>
+      <CustomParameter name="colorScale" value="1 0.8 0"/>
+      <CustomParameter name="clearCoatIntensity" value="0.25"/>
+      <CustomParameter name="clearCoatSmoothness" value="1"/>
+    </Material>
+    <Material name="reflectorYellowMat" materialId="11" diffuseColor="0.8 0.8 0.8 1" specularColor="0.6 1 0" customShaderId="6">
+      <Custommap name="detailSpecular" fileId="17"/>
+      <Custommap name="detailNormal" fileId="8"/>
+      <Custommap name="detailDiffuse" fileId="18"/>
+      <CustomParameter name="colorScale" value="1 0.8 0"/>
+      <CustomParameter name="clearCoatIntensity" value="0.25"/>
+      <CustomParameter name="clearCoatSmoothness" value="1"/>
+    </Material>
+    <Material name="silverScratchedShinyMat" materialId="12" customShaderId="6">
+      <Texture fileId="3"/>
+      <Normalmap fileId="4"/>
+      <Glossmap fileId="5"/>
+      <Custommap name="detailSpecular" fileId="14"/>
+      <Custommap name="detailNormal" fileId="8"/>
+      <Custommap name="detailDiffuse" fileId="15"/>
+      <CustomParameter name="colorScale" value="0.7379 0.7454 0.7529"/>
+    </Material>
+    <Material name="UnnamedMaterial" materialId="13" diffuseColor="1 1 1 1">
+    </Material>
+  </Materials>
+
+
+  <Shapes externalShapesFile="transport.i3d.shapes">
+  </Shapes>
+
+  <Scene>
+    <Shape name="transportcol" rotation="-6.83019e-06 -0 0" shapeId="1" dynamic="true" compound="true" collisionFilterGroup="0x10004" collisionFilterMask="0xfe3ffb83" clipDistance="300" nodeId="31" castsShadows="true" receiveShadows="true" nonRenderable="true" materialIds="6">
+      <Shape name="transport" rotation="6.83019e-06 -0 0" shapeId="2" nodeId="32" castsShadows="true" receiveShadows="true" materialIds="5,12">
+        <TransformGroup name="attachable" translation="0 1.35525e-22 5.68434e-16" rotation="-1.36604e-05 -0 0" nodeId="33">
+          <TransformGroup name="attacherJoint" translation="0 0.437 6.052" rotation="0 90 0" nodeId="34"/>
+          <Shape name="jack" translation="0.0508006 0.425599 5.3924" rotation="1.36604e-05 -0 0" shapeId="3" nodeId="35" castsShadows="true" receiveShadows="true" materialIds="12,5">
+            <Shape name="cube" translation="0.0806581 -0.375599 0" rotation="-2.04906e-05 -0 0" shapeId="4" compoundChild="true" collisionFilterGroup="0x10004" collisionFilterMask="0xfe3ffb83" nodeId="36" castsShadows="true" receiveShadows="true" nonRenderable="true" materialIds="13"/>
+            <Shape name="jack.001" shapeId="5" nodeId="37" castsShadows="true" receiveShadows="true" materialIds="12"/>
+          </Shape>
+        </TransformGroup>
+        <TransformGroup name="wheels" rotation="-1.36604e-05 -0 0" nodeId="38">
+          <TransformGroup name="wheelfl" translation="0.65845 0.3875 0.545062" rotation="-6.83019e-06 -0 0" nodeId="39"/>
+          <TransformGroup name="wheelfr" translation="0.0615502 0.3875 0.545062" rotation="-6.83019e-06 -0 0" nodeId="40"/>
+          <TransformGroup name="wheelrl" translation="-0.0615499 0.3875 -0.545062" rotation="-6.83019e-06 -0 0" nodeId="41"/>
+          <TransformGroup name="wheelrr" translation="-0.65845 0.3875 -0.545062" rotation="-6.83019e-06 -0 0" nodeId="42"/>
+        </TransformGroup>
+        <TransformGroup name="movingParts" rotation="-1.36604e-05 -0 0" nodeId="43">
+          <TransformGroup name="rampl" translation="0.811 0.335 0" clipDistance="300" nodeId="44">
+            <Shape name="rampl" translation="-0.000234962 -0.000109017 1.04009e-07" rotation="1.36604e-05 -0 0" shapeId="6" nodeId="45" castsShadows="true" receiveShadows="true" materialIds="5">
+              <Shape name="transportcol03" translation="0.000234962 0.000109017 -9.45088e-08" rotation="-2.04906e-05 -0 0" shapeId="7" visibility="false" compoundChild="true" collisionFilterGroup="0x10004" collisionFilterMask="0xfe3ffb83" nodeId="46" castsShadows="true" receiveShadows="true" nonRenderable="true" materialIds="6"/>
+              <Shape name="transportcol05" translation="0.000234962 0.000109017 -9.45088e-08" rotation="-2.04906e-05 -0 0" shapeId="8" visibility="false" compoundChild="true" collisionFilterGroup="0x10004" collisionFilterMask="0xfe3ffb83" nodeId="47" castsShadows="true" receiveShadows="true" nonRenderable="true" materialIds="6"/>
+              <Shape name="rampldecal" translation="0 0 -3.55271e-15" shapeId="9" clipDistance="50" nodeId="48" castsShadows="true" receiveShadows="true" materialIds="10,9"/>
+            </Shape>
+          </TransformGroup>
+          <TransformGroup name="rampr" translation="-0.811 0.335 0" clipDistance="300" nodeId="49">
+            <Shape name="rampr" translation="0.000234962 -0.000109017 1.15284e-07" rotation="1.36604e-05 -0 0" shapeId="10" nodeId="50" castsShadows="true" receiveShadows="true" materialIds="5">
+              <Shape name="transportcol04" translation="-0.000234962 0.000109017 -8.49824e-08" rotation="-2.04906e-05 -0 0" shapeId="11" visibility="false" compoundChild="true" collisionFilterGroup="0x10004" collisionFilterMask="0xfe3ffb83" nodeId="51" castsShadows="true" receiveShadows="true" nonRenderable="true" materialIds="6"/>
+              <Shape name="transportcol06" translation="-0.000234962 0.000109017 -8.49824e-08" rotation="-2.04906e-05 -0 0" shapeId="12" visibility="false" compoundChild="true" collisionFilterGroup="0x10004" collisionFilterMask="0xfe3ffb83" nodeId="52" castsShadows="true" receiveShadows="true" nonRenderable="true" materialIds="6"/>
+              <Shape name="ramprdecal" translation="0 0 3.55271e-15" shapeId="13" clipDistance="50" nodeId="53" castsShadows="true" receiveShadows="true" materialIds="10,9"/>
+            </Shape>
+          </TransformGroup>
+        </TransformGroup>
+        <TransformGroup name="tensionBelts" rotation="-1.36604e-05 -0 0" nodeId="54">
+          <TransformGroup name="startPoint01" translation="0.4108 0.46641 1.542" rotation="0 -90 0" nodeId="55">
+            <TransformGroup name="startPoint01End" translation="2.6148e-14 1.42109e-16 0.822" nodeId="56"/>
+          </TransformGroup>
+          <TransformGroup name="startPoint02" translation="0.411 0.466 -1.542" rotation="0 -90 0" nodeId="57">
+            <TransformGroup name="startPoint02End" translation="2.6148e-14 1.42109e-16 0.822" nodeId="58"/>
+          </TransformGroup>
+          <Shape name="beltActivationTrigger" translation="0 1.97519 0.127" shapeId="14" visibility="false" kinematic="true" trigger="true" collisionFilterGroup="0x20000000" collisionFilterMask="0x100000" nodeId="59" castsShadows="true" receiveShadows="true" nonRenderable="true" materialIds="7"/>
+        </TransformGroup>
+        <TransformGroup name="visuals" rotation="-1.36604e-05 -0 0" nodeId="60">
+          <Shape name="transport.002" rotation="1.36604e-05 -0 0" shapeId="15" clipDistance="50" nodeId="61" castsShadows="true" receiveShadows="true" materialIds="8,11"/>
+        </TransformGroup>
+        <TransformGroup name="swatherAttacher" translation="0 0.55539 -3.12639e-13" rotation="2.11698e-11 -0 0" nodeId="62"/>
+        <TransformGroup name="swatherAttacher2" translation="0 0.55539 -3.12639e-13" rotation="-180 -5.00896e-06 180" nodeId="63"/>
+      </Shape>
+      <TransformGroup name="collisions" nodeId="64">
+        <Shape name="transportcol01" rotation="-1.82123e-06 -180 -8.16063e-13" shapeId="16" visibility="false" compoundChild="true" collisionFilterGroup="0x10004" collisionFilterMask="0xfe3ffb83" nodeId="65" castsShadows="true" receiveShadows="true" nonRenderable="true" materialIds="6"/>
+        <Shape name="transportcol02" rotation="-6.83019e-06 -0 0" shapeId="16" visibility="false" compoundChild="true" collisionFilterGroup="0x10004" collisionFilterMask="0xfe3ffb83" nodeId="66" castsShadows="true" receiveShadows="true" nonRenderable="true" materialIds="6"/>
+      </TransformGroup>
+    </Shape>
+  </Scene>
+
+</i3D>

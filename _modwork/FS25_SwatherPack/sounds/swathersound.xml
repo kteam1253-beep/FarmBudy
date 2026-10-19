@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<sounds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../../../../../bin/shared/xml/schema/vehicle_sounds.xsd">
+    <motorized>
+        <sounds>
+            <motor template="engineLarge" file="sounds/engine_loop.gls" linkNodeOffset="-0.6 1 0" pitchScale="1" volumeScale="2" >
+                <volume outdoor="1.0" indoor="0.5"/>
+                <lowpassGain indoor="0.3" outdoor="0.5" />
+                <lowpassCutoffFrequency indoor="200" outdoor="6000" />
+            </motor>
+            <motor template="fanModern_03" linkNodeOffset="0 2 -2" volumeScale="1.4"/>
+            <motor template="transmissionModern_05" volumeScale="2.5" pitchScale="0.4" linkNode="wheelFrontLeft"/>
+            <motor template="transmissionModern_05" volumeScale="2.5" pitchScale="0.6" linkNode="wheelFrontRight"/>
+            <motor template="cabinHarvester01" volumeScale="3" pitchScale="1.0" linkNodeOffset="0 2.5 1"/>
+            <motor template="indoorCabinRumble" linkNodeOffset="0.5 2.5 1"  pitchScale="1"/>
+            <motor template="indoorCabinRumble" linkNodeOffset="-0.5 2.5 1" pitchScale="1.2"/>
+            <gearbox template="transmissionLarge" pitchScale="0.7" volumeScale="0.5"/>
+        </sounds>
+    </motorized>
+
+    <enterable>
+        <sounds>
+            <rain template="rainInVehicle"  linkNodeOffset="0 2.5 1">
+                <loopSynthesisRpm>
+                    <modifier type="SPEED" value="0.0" modifiedValue="0.0" />
+                    <modifier type="SPEED" value="45.0" modifiedValue="1" />
+                </loopSynthesisRpm>
+                <volume>
+                    <modifier type="SPEED" value="0" modifiedValue="1" />
+                    <modifier type="SPEED" value="15" modifiedValue="1" />
+                    <modifier type="SPEED" value="45" modifiedValue="1.2" />
+                </volume>
+
+                <pitch>
+                    <modifier type="SPEED" value="0" modifiedValue="1" />
+                    <modifier type="SPEED" value="15" modifiedValue="1" />
+                    <modifier type="SPEED" value="45" modifiedValue="1.0" />
+                </pitch>
+            </rain>
+
+            <hail template="hailInVehicle"  linkNodeOffset="0 2.5 1" volumeScale="1.5">
+                <loopSynthesisRpm>
+                    <modifier type="SPEED" value="0.0" modifiedValue="0.0" />
+                    <modifier type="SPEED" value="42.0" modifiedValue="1" />
+                </loopSynthesisRpm>
+                <volume>
+                    <modifier type="SPEED" value="0" modifiedValue="1" />
+                    <modifier type="SPEED" value="25" modifiedValue="1" />
+                    <modifier type="SPEED" value="42" modifiedValue="1.2" />
+                </volume>
+
+                <pitch>
+                    <modifier type="SPEED" value="0" modifiedValue="1" />
+                    <modifier type="SPEED" value="25" modifiedValue="1" />
+                    <modifier type="SPEED" value="42" modifiedValue="1.0" />
+                </pitch>
+            </hail>
+        </sounds>
+    </enterable>
+
+    <lights>
+        <sounds>
+            <toggleLights template="switch01"  />
+            <turnLight template="switchTurnlight"  />
+        </sounds>
+    </lights>
+
+    <attacherJoints>
+        <sounds>
+            <attach template="attach01" />
+            <hydraulic template="hydraulicOpen02" pitchScale="1.5" volumeScale="3" fadeIn="0.1" fadeOut="0.1"/>
+        </sounds>
+    </attacherJoints>
+
+    <drivable>
+        <sounds>
+            <waterSplash template="waterSplash01" />
+        </sounds>
+    </drivable>
+
+    <ai>
+        <automaticSteering>
+            <sounds>
+                <engage template="gpsEngageDefault"/>
+                <disengage template="gpsDisengageDefault"/>
+                <lineEnd template="gpsLineEndDefault"/>
+            </sounds>
+        </automaticSteering>
+    </ai>
+
+
+    <honk>
+        <sound template="hornDefault" />
+    </honk>
+</sounds>

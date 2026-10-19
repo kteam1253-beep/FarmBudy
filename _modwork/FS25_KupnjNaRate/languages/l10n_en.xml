@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<l10n>
+	<translationContributors/>
+	<texts>
+		<text name="fl_btn_finance" text="KUPNJA NA RATE"/>
+    	<text name="fl_new_finance_title" text="Novi ugovor o kupnji na rate"/>
+    	<text name="fl_choose_deposit" text="Odaberite iznos pologa"/>
+    	<text name="fl_choose_duration" text="Odaberite trajanje ugovora u godinama"/>
+    	<text name="fl_option_one" text="Opcija jedan"/>
+    	<text name="fl_option_two" text="Opcija dva"/>
+    	<text name="fl_option_three" text="Opcija tri"/>
+    	<text name="fl_option_four" text="Opcija četiri"/>
+    	<text name="fl_header_monthly" text="Mjesečni trošak"/>
+    	<text name="fl_header_final_fee" text="Završna naknada"/>
+    	<text name="fl_header_total_cost" text="Ukupni trošak"/>
+    	<text name="fl_header_interest" text="Kamatna stopa"/>
+    	<text name="fl_header_settlement_cost" text="Trošak prijevremenog zatvaranja"/>
+    	<text name="fl_header_months_left" text="Preostalih mjeseci"/>
+    	<text name="fl_choose_option" text="Odaberite s kojom opcijom želite kupiti"/>
+    	<text name="fl_not_enough_money_deposit" text="Potrebno vam je barem %s pologa za kupnju ovog predmeta na rate."/>
+    	<text name="fl_deal_complete" text="Vaš ugovor o kupnji na rate za %s je završen."/>
+    	<text name="fl_deal_complete_early" text="Vaš ugovor o kupnji na rate je zatvoren jer ste prodali vozilo."/>
+    	<text name="fl_disclaimer_line_one" text="* Uplate će se naplaćivati automatski i mogu vas dovesti u dugovanje."/>
+    	<text name="fl_disclaimer_line_two" text="** Ako prodate predmet prije završetka ugovora o kupnji na rate, morat ćete platiti cijeli preostali iznos."/>
+    	<text name="fl_disclaimer_line_three" text="*** Polog će biti uzet odmah. Mjesečne uplate počinju idući mjesec. Završna naknada dospijeva mjesec nakon zadnje mjesečne uplate."/>
+    	<text name="fl_btn_settle_early" text="Prijevremeno zatvori"/>
+    	<text name="fl_header_remaining_cost" text="Preostali trošak"/>
+    	<text name="fl_header_current_deals" text="Trenutni ugovori"/>
+    	<text name="fl_header_hire_purchasing" text="Kupnja na rate"/>
+    	<text name="fl_header_item_name" text="Predmet"/>
+    	<text name="fl_not_enough_money_settlement" text="Nemate dovoljno novca da zatvorite ovaj ugovor."/>
+    	<text name="fl_deal_not_found" text="Ugovor nije pronađen. Možda je već zatvoren."/>
+    	<text name="fl_confirm_settle_early" text="Jeste li sigurni da želite zatvoriti ugovor? %s će odmah biti skinuto s vašeg računa."/>
+    	<text name="fl_settle_early_complete" text="Zatvorili ste ugovor o kupnji na rate i sada predmet u potpunosti posjedujete."/>
+	</texts>
+</l10n>

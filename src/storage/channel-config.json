@@ -1,0 +1,63 @@
+{
+  "categories": [
+    {
+      "name": "── 📌 𝗜𝗡𝗙𝗢𝗥𝗠𝗔𝗖𝗜𝗝𝗘 ──",
+      "channels": [
+        { "name": "�┃ᴅᴏʙʀᴏᴅᴏšʟɪᴄᴀ", "type": "text", "readOnly": true },
+        { "name": "✅┃ᴠᴇʀɪꜰɪᴋᴀᴄɪᴊᴀ", "type": "text", "readOnly": true },
+        { "name": "📝┃ᴘʀɪᴊᴀᴠᴀ", "type": "text", "readOnly": true },
+        { "name": "ℹ️┃ɪɴꜰᴏ", "type": "text", "readOnly": true }
+      ]
+    },
+    {
+      "name": "── 💬 𝗭𝗔𝗝𝗘𝗗𝗡𝗜𝗖𝗔 ──",
+      "channels": [
+        { "name": "📢┃ᴏʙᴀᴠɪᴊᴇꜱᴛɪ", "type": "text" },
+        { "name": "📜┃ᴘʀᴀᴠɪʟᴀ", "type": "text", "readOnly": true },
+        { "name": "❓┃ᴘɪᴛᴀɴᴊᴀ", "type": "forum", "freeWrite": true },
+        { "name": "💬┃ᴏᴘćᴇɴɪᴛᴏ", "type": "text", "freeWrite": true },
+        { "name": "📸┃ꜰᴏᴛᴏɢʀᴀꜰɪᴊᴇ", "type": "text", "freeWrite": true },
+        { "name": "🎫┃ᴛɪᴄᴋᴇᴛɪ", "type": "text", "readOnly": true }
+      ]
+    },
+    {
+      "name": "── 🌾 𝗦𝗟𝗔𝗩𝗢𝗡𝗦𝗞𝗔 𝗥𝗔𝗩𝗡𝗜𝗖𝗔 ──",
+      "channels": [
+        { "name": "🚀┃ʟᴀᴜɴᴄʜᴇʀ", "type": "text", "readOnly": true, "playerOnly": true },
+        { "name": "🌐┃ᴡᴇʙ", "type": "text", "readOnly": true, "playerOnly": true },
+        { "name": "📦┃ᴍᴏᴅᴏᴠɪ", "type": "text", "readOnly": true, "playerOnly": true },
+        { "name": "💬┃ꜰᴀʀᴍ-ᴄʜᴀᴛ", "type": "text", "playerOnly": true },
+        { "name": "🏆┃ʟᴇᴀᴅᴇʀʙᴏᴀʀᴅ", "type": "text", "readOnly": true, "playerOnly": true },
+        { "name": "🔔┃ꜰᴀʀᴍ-ᴏʙᴀᴠɪᴊᴇꜱᴛɪ", "type": "text", "readOnly": true, "playerOnly": true }
+      ]
+    },
+    {
+      "name": "── 🔒 𝗦𝗧𝗔𝗙𝗙 ──",
+      "channels": [
+        { "name": "⚙️┃ᴀᴅᴍɪɴ-ᴘᴀɴᴇʟ", "type": "text", "staffOnly": true },
+        { "name": "💬┃ꜱᴛᴀꜰꜰ-ᴄʜᴀᴛ", "type": "text", "staffOnly": true },
+        { "name": "📋┃ᴍᴏᴅ-ʟᴏɢ", "type": "text", "staffOnly": true },
+        { "name": "📊┃ʙᴏᴛ-ᴅᴀꜱʜʙᴏᴀʀᴅ", "type": "text", "staffOnly": true, "readOnly": true }
+      ]
+    },
+    {
+      "name": "── 🎙️ 𝗚𝗟𝗔𝗦𝗢𝗩𝗡𝗜 𝗞𝗔𝗡𝗔𝗟𝗜 ──",
+      "channels": [
+        { "name": "🌾 ɴᴊɪᴠᴀ", "type": "voice" },
+        { "name": "🚜 ɢᴀʀᴀžᴀ", "type": "voice" },
+        { "name": "🏡 ᴅᴠᴏʀɪšᴛᴇ", "type": "voice" },
+        { "name": "🐄 šᴛᴀʟᴀ", "type": "voice" },
+        { "name": "🌻 ᴘʟᴀɴᴛᴀžᴀ", "type": "voice" },
+        { "name": "🏭 ᴛᴠᴏʀɴɪᴄᴀ", "type": "voice" },
+        { "name": "🛒 ᴛʀžɴɪᴄᴀ", "type": "voice" },
+        { "name": "🔒 ᴜʀᴇᴅ", "type": "voice", "staffOnly": true },
+        { "name": "🚽 ᴘᴏʟᴊꜱᴋɪ ᴡᴄ", "type": "voice" }
+      ]
+    }
+  ],
+  "farmChannels": [
+    { "name": "📊┃ꜱᴛᴀᴛɪꜱᴛɪᴋᴀ", "type": "text", "readOnly": true, "farmOnly": true },
+    { "name": "🏦┃ᴇᴋᴏɴᴏᴍɪᴊᴀ", "type": "text", "readOnly": true, "farmOnly": true },
+    { "name": "🐄┃žɪᴠᴏᴛɪɴᴊᴇ", "type": "text", "readOnly": true, "farmOnly": true }
+  ]
+}

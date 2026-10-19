@@ -1,0 +1,12 @@
+node_modules
+data/state.json
+.env
+.env.*
+!.env.example
+.DS_Store
+dist
+client/dist
+.vite
+.cache
+*.log
+node_modules/

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<wheel xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../../../../shared/xml/schema/wheel.xsd">
+    <metadata brand="CONTINENTAL" name="TerrainContact&#8482; H/T" category="CAR"/>
+    <default>
+        <physics radius="0.3875" width="0.245" mass="0.057" tireType="street" frictionScale="1.60" maxLongStiffness="8" maxLatStiffness="100" maxLatStiffnessLoad="2" />
+        <tire filename="$data/shared/wheels/tires/continental/terrainContactHT/245_65R16.i3d" nodeLeft="0|0" nodeRight="0|0" maxDeformation="0.01" tireTrackAtlasIndex="4" hasMudMesh="true" />
+        <outerRim filename="$data/shared/wheels/rims/rim001.i3d" node="0|0" widthAndDiam="14 16" scale="0.5 1 1" />
+        <innerRim filename="wheels/lizardWheel.i3d" nodeLeft="2|0" nodeRight="2|1" scale="0.8 1.3 1.3" />
+    </default>
+    <configurations>
+        <configuration id="dual">
+            <innerRim filename="-" />
+        </configuration>
+        <configuration id="trailer">
+            <innerRim filename="$data/shared/wheels/rims/rim001.i3d" nodeLeft="2|0" nodeRight="2|1" widthAndDiam="16 16" scale="0.5 1 1" />
+        </configuration>
+        <configuration id="bockmann">
+            <outerRim filename="-" />
+            <innerRim filename="$data/shared/wheels/rims/bockmann/rim001.i3d" nodeLeft="0|0" nodeRight="0|1" widthAndDiam="7.2 18" scale="1 1 1" />
+        </configuration>
+        <configuration id="bockmann2">
+            <outerRim filename="-" />
+            <innerRim filename="$data/shared/wheels/rims/bockmann/rim001.i3d" nodeLeft="1|0" nodeRight="1|1" widthAndDiam="7.2 18" scale="1 1 1" />
+        </configuration>
+    </configurations>
+</wheel>

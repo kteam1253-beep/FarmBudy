@@ -1,0 +1,38 @@
+name: Apply Patch
+
+on:
+  workflow_dispatch:
+    inputs:
+      patch_b64:
+        description: "Base64 encoded unified diff patch"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decode patch
+        shell: bash
+        run: |
+          echo "${{ inputs.patch_b64 }}" | base64 -d > patch.diff
+          head -n 5 patch.diff || true
+
+      - name: Apply patch
+        shell: bash
+        run: |
+          git apply --whitespace=nowarn patch.diff
+
+      - name: Commit & push
+        shell: bash
+        run: |
+          git config user.name "FarmBuddy Bot"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Apply patch from ChatGPT"
+          git push

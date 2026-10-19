@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<modDesc descVersion="105">
+    <author>Paint-a-Farm | Kim Brandwijk</author>
+    <version>1.0.0.0</version>
+    <title>
+        <en>Field Rename</en>
+        <de>Feld Umbenennen</de>
+        <nl>Veld Hernoemen</nl>
+    </title>
+    <description>
+        <en><![CDATA[Allows you to rename your fields directly from the map. Click on a field you own and use the "Rename" button to give it a custom name.]]></en>
+        <de><![CDATA[Ermöglicht das Umbenennen von Feldern direkt über die Karte. Klicken Sie auf ein eigenes Feld und nutzen Sie die Schaltfläche "Umbenennen".]]></de>
+        <nl><![CDATA[Hiermee kun je je velden direct vanaf de kaart hernoemen. Klik op een veld dat je bezit en gebruik de knop "Hernoemen" om het een aangepaste naam te geven.]]></nl>
+    </description>
+
+    <iconFilename>icon_FieldRename.dds</iconFilename>
+    <multiplayer supported="true"/>
+
+    <extraSourceFiles>
+        <sourceFile filename="scripts/FieldRename.lua"/>
+    </extraSourceFiles>
+
+    <l10n filenamePrefix="l10n/l10n"/>
+</modDesc>

@@ -1,0 +1,4347 @@
+// src/index.js
+// FarmBudy – Admin command panel + field workflow + single Field Details panel (no spam)
+//
+// Panels:
+//  - Admin Panel (pinnable): buttons to deploy other panels, set log channel, manage fields, refresh
+//  - Workflow Board: choose a field (button)
+//  - Field Details: one persistent message updated when a field is chosen
+//  - Activity Panel: recent activity feed
+//
+// Defaults:
+//  - fields: 1..5 (dynamic list; add/remove via admin panel or /fields)
+//  - field click updates Field Details panel (if not deployed, it will auto-create in the same channel)
+//
+// Workflow per field:
+//   Lime -> Fertilize -> Choose (Plow/Subsoil/Skip) -> Cultivate -> Seed (pick crop) -> Harvest -> loop
+//
+// Planning:
+//  - You can set "planned seeding" anytime; when the workflow reaches SEED_PICK, it will auto-use the planned crop.
+
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+
+import {
+  ActionRowBuilder,
+  AttachmentBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelSelectMenuBuilder,
+  ChannelType,
+  Client,
+  EmbedBuilder,
+  Events,
+  GatewayIntentBits,
+  MessageFlags,
+  ModalBuilder,
+  PermissionsBitField,
+  REST,
+  Routes,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} from "discord.js";
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// ENV
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+const ENV = {
+  token: process.env.DISCORD_TOKEN,
+  clientId: process.env.DISCORD_CLIENT_ID ?? process.env.CLIENT_ID,
+  guildId: process.env.DISCORD_GUILD_ID ?? process.env.GUILD_ID,
+  adminRoleId: process.env.ADMIN_ROLE_ID ?? null,
+};
+
+const missing = [];
+if (!ENV.token) missing.push("DISCORD_TOKEN");
+if (!ENV.clientId) missing.push("DISCORD_CLIENT_ID (or CLIENT_ID)");
+if (!ENV.guildId) missing.push("DISCORD_GUILD_ID (or GUILD_ID)");
+if (missing.length) {
+  console.error("Missing env vars. Required:", missing.join(", "));
+  process.exit(1);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// STATE (JSON)
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+const DATA_DIR = path.resolve("./data");
+const STATE_PATH = path.join(DATA_DIR, "state.json");
+
+function ensureDataDir() {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch {}
+}
+
+function nowISO() {
+  return new Date().toISOString();
+}
+
+function loadState() {
+  ensureDataDir();
+  try {
+    const raw = fs.readFileSync(STATE_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    return {
+      version: 3,
+      config: {
+        fields: [1, 2, 3, 4, 5],
+        logChannelId: null,
+        detailsChannelId: null, // optional, if you want details in a dedicated channel
+        taskHistoryChannelId: null, // optional, channel for task history feed
+      },
+      panels: {},
+      fields: {},
+      tasks: {},
+      activity: [],
+      counters: { taskSeq: 1 },
+      ...parsed,
+    };
+  } catch {
+    return {
+      version: 3,
+      config: { fields: [1, 2, 3, 4, 5], logChannelId: null, detailsChannelId: null, taskHistoryChannelId: null },
+      panels: {},
+      fields: {},
+      tasks: {},
+      activity: [],
+      counters: { taskSeq: 1 },
+    };
+  }
+}
+
+let state = loadState();
+
+const runtime = { joins: [], lockdownUntil: 0 };
+
+function saveState() {
+  ensureDataDir();
+  fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), "utf8");
+}
+
+function ensureConfig() {
+  state.config = state.config ?? {};
+  if (!Array.isArray(state.config.fields)) state.config.fields = [1, 2, 3, 4, 5];
+
+  state.config.fields = [...new Set(state.config.fields.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0))]
+    .sort((a, b) => a - b);
+
+  if (!("logChannelId" in state.config)) state.config.logChannelId = null;
+  if (!("detailsChannelId" in state.config)) state.config.detailsChannelId = null;
+  if (!("taskHistoryChannelId" in state.config)) state.config.taskHistoryChannelId = null;
+  if (!("backupChannelId" in state.config)) state.config.backupChannelId = null;
+
+  // Onboarding (welcome/goodbye)
+  state.config.welcome = state.config.welcome ?? {
+    enabled: false,
+    channelId: null,
+    message: "Dobrodošao {user} u **{server}**! Trenutno nas ima: **{memberCount}**.",
+  };
+  state.config.goodbye = state.config.goodbye ?? {
+    enabled: false,
+    channelId: null,
+    message: "**{username}** je napustio **{server}**.",
+  };
+
+  // Moderation
+  if (!("modLogChannelId" in state.config)) state.config.modLogChannelId = null;
+
+  // Security (anti-scam / anti-alt / anti-raid)
+  state.config.security = state.config.security ?? {};
+  if (!("minAccountAgeDays" in state.config.security)) state.config.security.minAccountAgeDays = 0;
+  if (!("quarantineRoleId" in state.config.security)) state.config.security.quarantineRoleId = null;
+  if (!("memberRoleId" in state.config.security)) state.config.security.memberRoleId = null;
+  if (!("verificationChannelId" in state.config.security)) state.config.security.verificationChannelId = null;
+
+  state.config.security.antiScam = state.config.security.antiScam ?? {
+    enabled: true,
+    blockLinksForUnverified: true,
+    timeoutMinutes: 10,
+    keywords: ["free nitro", "steam gift", "airdrop", "crypto", "giveaway", "gift"],
+  };
+
+  state.config.security.antiRaid = state.config.security.antiRaid ?? {
+    enabled: true,
+    windowSec: 30,
+    maxJoins: 5,
+    lockdownMinutes: 10,
+  };
+
+  if (!("fieldsPanelTitle" in state.config)) state.config.fieldsPanelTitle = "FarmBudy – Polja";
+  state.config.embedColors = state.config.embedColors ?? {
+    admin: 0x5865F2,
+    workflow: 0x22aa22,
+    fieldDetails: 0x22aa22,
+    activity: 0x22aa22,
+  };
+  saveState();
+}
+ensureConfig();
+
+function logActivity(text) {
+  state.activity = state.activity ?? [];
+  state.activity.unshift({ ts: nowISO(), text });
+  state.activity = state.activity.slice(0, 120);
+  saveState();
+}
+
+
+function getFieldsPanelTitle() {
+  ensureConfig();
+  return String(state.config.fieldsPanelTitle ?? "FarmBuddy – Polja");
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// DISCORD CLIENT
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+});
+
+function eph() {
+  return { flags: MessageFlags.Ephemeral };
+}
+
+async function ackAndDelete(interaction, content = "OK.") {
+  try {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.reply({ ...eph(), content }).catch(() => null);
+    } else {
+      await interaction.editReply({ content }).catch(() => null);
+    }
+    // Avoid clutter: remove ephemeral confirmation shortly after.
+    setTimeout(() => {
+      try { interaction.deleteReply().catch(() => null); } catch {}
+    }, 800);
+  } catch {}
+}
+
+function isAdmin(member) {
+  // If no ADMIN_ROLE_ID is set, treat everyone as admin to avoid locking you out while testing.
+  if (!ENV.adminRoleId) return true;
+  return member?.roles?.cache?.has?.(ENV.adminRoleId) ?? false;
+}
+
+function canBasic(member) {
+  if (isAdmin(member)) return true;
+  const roleId = state.config?.security?.memberRoleId;
+  if (!roleId) return true; // if not configured, allow everyone
+  return member?.roles?.cache?.has?.(roleId) ?? false;
+}
+
+function hasChannelSendPerms(channel, meMember) {
+  try {
+    const perms = channel.permissionsFor(meMember);
+    if (!perms) return false;
+    return (
+      perms.has(PermissionsBitField.Flags.ViewChannel) &&
+      perms.has(PermissionsBitField.Flags.SendMessages) &&
+      perms.has(PermissionsBitField.Flags.EmbedLinks)
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function sendToLog(content) {
+  const chId = state.config?.logChannelId;
+  if (!chId) return;
+  try {
+    const ch = await client.channels.fetch(chId);
+    if (ch && ch.isTextBased()) await ch.send(content);
+  } catch {}
+}
+
+async function sendToModLog(content) {
+  const chId = state.config?.modLogChannelId || state.config?.logChannelId;
+  if (!chId) return;
+  try {
+    const ch = await client.channels.fetch(chId);
+    if (ch && ch.isTextBased()) await ch.send(content);
+  } catch {}
+}
+
+function applyVars(template, memberOrUser, guild) {
+  const user = memberOrUser?.user ?? memberOrUser;
+  const memberCount = guild?.memberCount ?? 0;
+  const username = user?.username ?? "User";
+  const tag = user?.tag ?? username;
+  return String(template ?? "")
+    .replaceAll("{user}", user?.id ? `<@${user.id}>` : username)
+    .replaceAll("{username}", username)
+    .replaceAll("{tag}", tag)
+    .replaceAll("{server}", guild?.name ?? "")
+    .replaceAll("{memberCount}", String(memberCount));
+}
+
+function hasRole(member, roleId) {
+  if (!roleId) return false;
+  try { return member.roles?.cache?.has?.(roleId) ?? false; } catch { return false; }
+}
+
+function isVerified(member) {
+  const memberRoleId = state.config?.security?.memberRoleId;
+  if (!memberRoleId) return true; // if not configured, treat as verified
+  return hasRole(member, memberRoleId);
+}
+
+function accountAgeDays(user) {
+  try {
+    const created = user?.createdAt ? user.createdAt.getTime() : 0;
+    if (!created) return 9999;
+    return (Date.now() - created) / (1000 * 60 * 60 * 24);
+  } catch {
+    return 9999;
+  }
+}
+
+async function sendToTaskHistory(content) {
+  const chId = state.config?.taskHistoryChannelId;
+  if (!chId) return;
+  try {
+    const ch = await client.channels.fetch(chId);
+    if (ch && ch.isTextBased()) await ch.send(content);
+  } catch {}
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// BACKUP / RESTORE + DAILY SUMMARY (low-noise mode)
+//  - Activity channel is OFF: we do not spam START/PAUSE.
+//  - Task history channel receives DONE events and the daily summary.
+//  - Backup posts state.json as attachment; restore pulls the latest JSON attachment.
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+function zagrebParts(date = new Date()) {
+  const dtf = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Zagreb",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = dtf.formatToParts(date);
+  const obj = {};
+  for (const p of parts) if (p.type !== "literal") obj[p.type] = p.value;
+  return obj; // {year, month, day, hour, minute}
+}
+
+function zagrebDateKey(date = new Date()) {
+  const p = zagrebParts(date);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+function formatDurationMs(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "-";
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${ss}s`;
+  return `${ss}s`;
+}
+
+function pushEvent(ev) {
+  state.activity = state.activity ?? [];
+  state.activity.unshift(ev);
+  // keep last 2000 events
+  if (state.activity.length > 2000) state.activity.length = 2000;
+}
+
+function getBackupChannelId() {
+  return state.config?.backupChannelId || state.config?.logChannelId || state.config?.taskHistoryChannelId || null;
+}
+
+async function sendStateBackup(actorUserId = null) {
+  const chId = getBackupChannelId();
+  if (!chId) return false;
+
+  try {
+    const ch = await client.channels.fetch(chId);
+    if (!ch || !ch.isTextBased()) return false;
+
+    // Ensure on-disk state is up to date
+    saveState();
+
+    const buf = fs.readFileSync(STATE_PATH);
+    const stamp = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
+    const file = new AttachmentBuilder(buf, { name: `state-${Date.now()}.json` });
+
+    await ch.send({
+      content: `📦 Backup state.json${actorUserId ? ` — by <@${actorUserId}>` : ""} — ${stamp}`,
+      files: [file],
+    });
+
+    pushEvent({ ts: Date.now(), type: "BACKUP", actorUserId: actorUserId ?? null });
+    saveState();
+    return true;
+  } catch (e) {
+    console.error("sendStateBackup error:", e);
+    return false;
+  }
+}
+
+function normalizeLoadedState(parsed) {
+  const base = {
+    version: 3,
+    config: {
+      fields: [1, 2, 3, 4, 5],
+      logChannelId: null,
+      detailsChannelId: null,
+      taskHistoryChannelId: null,
+      backupChannelId: null,
+      activityMode: "OFF",
+      lastDailySummaryDate: null,
+    },
+    panels: {},
+    fields: {},
+    tasks: {},
+    activity: [],
+    counters: { taskSeq: 1 },
+  };
+
+  const merged = { ...base, ...(parsed ?? {}) };
+  merged.config = { ...base.config, ...(parsed?.config ?? {}) };
+  merged.panels = merged.panels ?? {};
+  merged.fields = merged.fields ?? {};
+  merged.tasks = merged.tasks ?? {};
+  merged.activity = Array.isArray(merged.activity) ? merged.activity : [];
+  merged.counters = merged.counters ?? { taskSeq: 1 };
+
+  // Force low-noise
+  merged.config.activityMode = "OFF";
+
+  return merged;
+}
+
+async function restoreStateFromLatestBackup(actorUserId = null) {
+  const chId = getBackupChannelId();
+  if (!chId) return { ok: false, reason: "no_channel" };
+
+  try {
+    const ch = await client.channels.fetch(chId);
+    if (!ch || !ch.isTextBased()) return { ok: false, reason: "bad_channel" };
+
+    const msgs = await ch.messages.fetch({ limit: 25 });
+    const msg = msgs.find((m) => (m.attachments?.size ?? 0) > 0);
+
+    if (!msg) return { ok: false, reason: "no_backup_found" };
+
+    const att = msg.attachments.find((a) => (a.name || "").toLowerCase().endsWith(".json"));
+    if (!att?.url) return { ok: false, reason: "no_json_attachment" };
+
+    const res = await fetch(att.url);
+    if (!res.ok) return { ok: false, reason: "download_failed" };
+    const txt = await res.text();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(txt);
+    } catch {
+      return { ok: false, reason: "json_parse_failed" };
+    }
+
+    state = normalizeLoadedState(parsed);
+    saveState();
+
+    pushEvent({ ts: Date.now(), type: "RESTORE", actorUserId: actorUserId ?? null });
+    saveState();
+
+    return { ok: true };
+  } catch (e) {
+    console.error("restoreStateFromLatestBackup error:", e);
+    return { ok: false, reason: "exception" };
+  }
+}
+
+async function sendDailySummaryIfDue() {
+  try {
+    // Summary goes to task history
+    if (!state.config?.taskHistoryChannelId) return;
+
+    const zp = zagrebParts(new Date());
+    const dateKey = zagrebDateKey(new Date());
+
+    // Run once per day around 03:00 Zagreb (03:00-03:19 window).
+    const h = Number(zp.hour);
+    const m = Number(zp.minute);
+    if (h !== 3 || m > 19) return;
+
+    if (state.config.lastDailySummaryDate === dateKey) return;
+
+    const since = Date.now() - 24 * 60 * 60 * 1000;
+    const done = (state.activity ?? []).filter((e) => e && e.type === "DONE" && Number(e.ts) >= since);
+
+    const total = done.length;
+    const byStage = {};
+    const byUser = {};
+    for (const e of done) {
+      const sk = e.stageKey || "UNKNOWN";
+      byStage[sk] = (byStage[sk] || 0) + 1;
+      const u = e.actorUserId || "unknown";
+      byUser[u] = (byUser[u] || 0) + 1;
+    }
+
+    const topStages = Object.entries(byStage).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const topUsers = Object.entries(byUser).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+    const stageLines = topStages.length
+      ? topStages.map(([k, v]) => `• ${STAGES[k]?.emoji ?? "🔹"} ${STAGES[k]?.label ?? k}: **${v}**`).join("\n")
+      : "• (nema)";
+
+    const userLines = topUsers.length
+      ? topUsers
+          .map(([u, v]) => `• ${u === "unknown" ? "Nepoznato" : `<@${u}>`}: **${v}**`)
+          .join("\n")
+      : "• (nema)";
+
+    await sendToTaskHistory({
+      content:
+        `📊 **Dnevni sažetak (zadnjih 24h)**
+` +
+        `Ukupno završeno: **${total}**
+
+` +
+        `**Po fazama**
+${stageLines}
+
+` +
+        `**Po igračima**
+${userLines}`,
+    });
+
+    state.config.lastDailySummaryDate = dateKey;
+    saveState();
+  } catch (e) {
+    console.error("sendDailySummaryIfDue error:", e);
+  }
+}
+
+function startDailySummaryLoop() {
+  // check every 10 minutes
+  setInterval(() => void sendDailySummaryIfDue(), 10 * 60 * 1000);
+}
+
+function startBackupLoop() {
+  // every 12 hours
+  const ms = 12 * 60 * 60 * 1000;
+  setInterval(() => void sendStateBackup(null), ms);
+}
+
+
+// TEMP: disable per-embed colors (prevents ReferenceError)
+function getEmbedColor() {
+  // Return a single neutral color (or change to 0x2B2D31)
+  return 0x2B2D31;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// WORKFLOW CONFIG
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+const STAGES = {
+  LIME: { key: "LIME", label: "Kalcizacija (lime)", emoji: "🪨" },
+  FERTILIZE: { key: "FERTILIZE", label: "Gnojidba", emoji: "💩" },
+  TILLAGE_CHOICE: { key: "TILLAGE_CHOICE", label: "Odabir obrade", emoji: "🛠️" },
+  PLOW: { key: "PLOW", label: "Oranje", emoji: "🚜" },
+  SUBSOIL: { key: "SUBSOIL", label: "Podrivanje", emoji: "🪓" },
+  CULTIVATE: { key: "CULTIVATE", label: "Kultiviranje", emoji: "🌿" },
+  SEED_PICK: { key: "SEED_PICK", label: "Sjetva (odaberi kulturu)", emoji: "🌱" },
+  SEED: { key: "SEED", label: "Sjetva", emoji: "🌱" },
+  HARVEST: { key: "HARVEST", label: "Žetva / vršenje", emoji: "🌾" },
+};
+
+const DEFAULT_STAGE = "LIME";
+
+const CROPS = [
+  { key: "WHEAT", label: "Pšenica", emoji: "🌾" },
+  { key: "BARLEY", label: "Ječam", emoji: "🌾" },
+  { key: "OATS", label: "Zob", emoji: "🌾" },
+  { key: "CANOLA", label: "Uljana repica", emoji: "🌼" },
+  { key: "CORN", label: "Kukuruz", emoji: "🌽" },
+  { key: "SUNFLOWER", label: "Suncokret", emoji: "🌻" },
+  { key: "SOYBEAN", label: "Soja", emoji: "🫘" },
+  { key: "SORGHUM", label: "Sorghum", emoji: "🌾" },
+  { key: "POTATO", label: "Krumpir", emoji: "🥔" },
+  { key: "SUGARBEET", label: "Šećerna repa", emoji: "🥕" },
+];
+
+const PRIORITY = {
+  LOW: { key: "LOW", label: "LOW", emoji: "🟢", buttonStyle: ButtonStyle.Success },
+  MED: { key: "MED", label: "MED", emoji: "🟠", buttonStyle: ButtonStyle.Primary }, // Discord has no orange style; we mimic with 🟠
+  HIGH: { key: "HIGH", label: "HIGH", emoji: "🔴", buttonStyle: ButtonStyle.Danger },
+};
+const PRIORITY_ORDER = ["LOW", "MED", "HIGH"];
+
+function parseHexColor(input, fallback = 0x22aa22) {
+  if (typeof input !== 'string') return fallback;
+  const s = input.trim().replace(/^#/, '');
+  if (!/^[0-9a-fA-F]{6}$/.test(s)) return fallback;
+  return parseInt(s, 16);
+}
+
+function colorFor(key, fallback = 0x22aa22) {
+  const c = state?.config?.embedColors?.[key];
+  return typeof c === 'number' ? c : fallback;
+}
+
+function cropLabel(key) {
+  const c = CROPS.find(x => x.key === key);
+  return c ? c.label : key;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// CORE MODEL
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+function getField(fieldId) {
+  const id = String(fieldId);
+  state.fields = state.fields ?? {};
+  if (!state.fields[id]) {
+    state.fields[id] = {
+      fieldId: id,
+      stage: DEFAULT_STAGE,
+      cycle: 1,
+      crop: null,          // actual crop for current cycle (when seeded)
+      plannedCrop: null,   // plan ahead
+      activeTaskId: null,
+      updatedAt: nowISO(),
+    };
+    saveState();
+  } else {
+    // forward-compat
+    if (!("plannedCrop" in state.fields[id])) state.fields[id].plannedCrop = null;
+  }
+  return state.fields[id];
+}
+
+function getFieldList() {
+  ensureConfig();
+  return state.config.fields;
+}
+
+function nextTaskId() {
+  state.counters = state.counters ?? { taskSeq: 1 };
+  const n = state.counters.taskSeq ?? 1;
+  state.counters.taskSeq = n + 1;
+  saveState();
+  return `T${String(n)}`;
+}
+
+
+function formatTaskId(id) {
+  if (!id) return "";
+  const s = String(id);
+  const m = /^T0+(\d+)$/.exec(s);
+  if (m) return `T${m[1]}`;
+  const m2 = /^T(\d+)$/.exec(s);
+  if (m2) return `T${m2[1]}`;
+  return s;
+}
+
+function setFieldStage(fieldId, stageKey) {
+  const f = getField(fieldId);
+  f.stage = stageKey;
+  f.updatedAt = nowISO();
+  saveState();
+}
+
+function setFieldActiveTask(fieldId, taskId) {
+  const f = getField(fieldId);
+  f.activeTaskId = taskId;
+  f.updatedAt = nowISO();
+  saveState();
+}
+
+function getActiveTask(fieldId) {
+  const f = getField(fieldId);
+  if (!f.activeTaskId) return null;
+  return state.tasks?.[f.activeTaskId] ?? null;
+}
+
+function getRunnableTaskForField(fieldId) {
+  // Returns the task the user should be able to Run/Pause/Done for this field.
+  // Priority: explicit activeTaskId → otherwise first OPEN/ACTIVE task by oldest id.
+  const active = getActiveTask(fieldId);
+  if (active && (active.status === "ACTIVE" || active.status === "OPEN")) return active;
+
+  const tasks = listTasksForField(fieldId)
+    .filter((t) => t.status === "ACTIVE" || t.status === "OPEN")
+    .slice();
+
+  if (!tasks.length) return null;
+
+  const idNum = (t) => {
+    const m = /^(?:T0*)?(\d+)$/.exec(String(t.id ?? ""));
+    return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
+  };
+
+  tasks.sort((a, b) => {
+    const sa = a.status === "ACTIVE" ? 0 : 1;
+    const sb = b.status === "ACTIVE" ? 0 : 1;
+    if (sa !== sb) return sa - sb;
+    return idNum(a) - idNum(b);
+  });
+
+  return tasks[0] ?? null;
+}
+
+
+function activateTask(task, userId = null) {
+  if (!task) return;
+  if (task.status !== "ACTIVE") {
+    task.status = "ACTIVE";
+    task.startedAt = new Date().toISOString();
+    if (userId) task.assignedTo = userId;
+    saveState();
+  }
+}
+
+
+function listTasksForField(fieldId) {
+  const tasks = Object.values(state.tasks ?? {}).filter((t) => t.fieldId === String(fieldId));
+  tasks.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+  return tasks;
+}
+
+function createTask(fieldId, stageKey, createdByUserId, extra = {}) {
+  const id = nextTaskId();
+  const stage = STAGES[stageKey] ?? { label: stageKey, emoji: "📌" };
+
+  const status = extra.status ?? "OPEN"; // OPEN -> ACTIVE -> DONE
+
+  const task = {
+    id,
+    fieldId: String(fieldId),
+    stageKey,
+    title: `${stage.emoji} ${stage.label}`,
+    status,
+    isRunning: status === "ACTIVE" ? true : false,
+    priority: extra.priority ?? "LOW",
+    assignedTo: extra.assignedTo ?? null,
+    createdBy: createdByUserId ?? null,
+    createdAt: nowISO(),
+    startedAt: status === "ACTIVE" ? nowISO() : null,
+    completedAt: null,
+    crop: extra.crop ?? null,
+    notes: extra.notes ?? "",
+  };
+
+  if (task.crop && stageKey === "SEED") {
+    const c = CROPS.find((x) => x.key === task.crop);
+    if (c) task.title = `${c.emoji} Sjetva: ${c.label}`;
+  }
+
+  state.tasks = state.tasks ?? {};
+  state.tasks[id] = task;
+  setFieldActiveTask(fieldId, id);
+  saveState();
+  return task;
+}
+
+
+function applyPlannedSeedingIfReady(fieldId, actorUserId = null) {
+  const f = getField(fieldId);
+  if (f.stage !== "SEED_PICK") return false;
+  if (!f.plannedCrop) return false;
+
+  const crop = CROPS.find((c) => c.key === f.plannedCrop);
+  if (!crop) return false;
+
+  // Close the pick-crop task if it is currently active
+  const pick = getActiveTask(fieldId);
+  if (pick && pick.stageKey === "SEED_PICK" && pick.status !== "DONE") {
+    pick.status = "DONE";
+    pick.completedAt = nowISO();
+  }
+
+  f.crop = f.plannedCrop;
+  setFieldStage(fieldId, "SEED");
+  createTask(fieldId, "SEED", actorUserId, { crop: f.plannedCrop });
+  logActivity(`Plan sjetve primijenjen: **${crop.label}** (polje ${fieldId}).`);
+  sendToLog({ content: `${crop.emoji} Plan sjetve primijenjen — polje **${fieldId}**: **${crop.label}**.` });
+  saveState();
+  return true;
+}
+
+function advanceAfterDone(fieldId, doneTask) {
+  const f = getField(fieldId);
+  const stage = doneTask.stageKey;
+
+  if (stage === "LIME") setFieldStage(fieldId, "FERTILIZE");
+  else if (stage === "FERTILIZE") setFieldStage(fieldId, "TILLAGE_CHOICE");
+  else if (stage === "PLOW" || stage === "SUBSOIL") setFieldStage(fieldId, "CULTIVATE");
+  else if (stage === "CULTIVATE") setFieldStage(fieldId, "SEED_PICK");
+  else if (stage === "SEED") setFieldStage(fieldId, "HARVEST");
+  else if (stage === "HARVEST") {
+    const prevCycle = f.cycle ?? 1;
+    f.cycle = prevCycle + 1;
+    f.crop = null;
+    f.plannedCrop = null; // ask again next rotation unless re-planned
+    setFieldStage(fieldId, "LIME");
+    sendToLog({ content: `✅ **Polje ${String(fieldId)}** završilo ciklus **${prevCycle}** (prelazak na Lime).` });
+  } else {
+    setFieldStage(fieldId, "LIME");
+  }
+
+  f.activeTaskId = null;
+  f.updatedAt = nowISO();
+  saveState();
+
+  // If we reached SEED_PICK and a plan exists, immediately create seed task
+  applyPlannedSeedingIfReady(fieldId, doneTask.createdBy);
+}
+
+function completeTaskById(taskId, actorUserId) {
+  const t = state.tasks?.[String(taskId)];
+  if (!t) return { ok: false, reason: "not_found" };
+  if (t.status === "DONE") return { ok: false, reason: "already_done" };
+  if (t.stageKey === "TILLAGE_CHOICE" || t.stageKey === "SEED_PICK") return { ok: false, reason: "choice_required" };
+
+  t.isRunning = false;
+  t.status = "DONE";
+  t.completedAt = nowISO();
+  saveState();
+
+  const durMs = t.startedAt ? (Date.parse(t.completedAt) - Date.parse(t.startedAt)) : null;
+  pushEvent({
+    ts: Date.now(),
+    type: "DONE",
+    actorUserId,
+    fieldId: String(t.fieldId),
+    taskId: t.id,
+    stageKey: t.stageKey,
+    priority: t.priority ?? "LOW",
+    durationMs: durMs ?? null,
+  });
+
+  advanceAfterDone(t.fieldId, t);
+  return { ok: true, task: t };
+}
+
+function ensureNextForField(fieldId, userIdForCreate = null) {
+  const f = getField(fieldId);
+
+  // If we are waiting for seed pick but have a plan, auto apply it
+  if (applyPlannedSeedingIfReady(fieldId, userIdForCreate)) return getActiveTask(fieldId);
+
+  const active = getActiveTask(fieldId);
+  if (active && (active.status === "OPEN" || active.status === "ACTIVE")) return active;
+
+  if (f.stage === "TILLAGE_CHOICE") return createTask(fieldId, "TILLAGE_CHOICE", userIdForCreate);
+  if (f.stage === "SEED_PICK") {
+    // If a plan exists, auto-create SEED task; otherwise create a pick-crop task.
+    if (applyPlannedSeedingIfReady(fieldId, userIdForCreate)) return getActiveTask(fieldId);
+    return createTask(fieldId, "SEED_PICK", userIdForCreate);
+  }
+
+  return createTask(fieldId, f.stage, userIdForCreate);
+}
+
+function fieldCounters(fieldId) {
+  const tasks = listTasksForField(fieldId);
+  return {
+    open: tasks.filter((t) => t.status === "OPEN").length,
+    active: tasks.filter((t) => t.status === "ACTIVE").length,
+    done: tasks.filter((t) => t.status === "DONE").length,
+  };
+}
+
+function countersAll() {
+  let open = 0, active = 0, done = 0;
+  const fields = getFieldList();
+  for (const fieldId of fields) {
+    const c = fieldCounters(fieldId);
+    open += c.open;
+    active += c.active;
+    done += c.done;
+  }
+  return { open, active, done };
+}
+
+
+function cyclePriority(task) {
+  const cur = task.priority ?? "MED";
+  const idx = PRIORITY_ORDER.indexOf(cur);
+  const next = PRIORITY_ORDER[(idx + 1) % PRIORITY_ORDER.length];
+  task.priority = next;
+  return next;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// PARSING HELPERS
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+function parseIds(input) {
+  if (!input) return [];
+  const s = String(input).replace(/\s+/g, "");
+  const parts = s.split(",").filter(Boolean);
+  const out = [];
+  for (const p of parts) {
+    if (/^\d+$/.test(p)) out.push(Number(p));
+    else if (/^\d+\-\d+$/.test(p)) {
+      const [a, b] = p.split("-").map(Number);
+      const start = Math.min(a, b), end = Math.max(a, b);
+      for (let n = start; n <= end; n++) out.push(n);
+    }
+  }
+  return [...new Set(out.filter((n) => Number.isFinite(n) && n > 0))].sort((a, b) => a - b);
+}
+
+function parseChannelId(input) {
+  if (!input) return null;
+  const s = String(input).trim();
+  const m = s.match(/^<\#(\d+)>$/) || s.match(/^(\d+)$/);
+  return m ? m[1] : null;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// PANEL RENDERING
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+const FIELDS_PER_PAGE = 20;
+
+const WORKFLOW_TASKS_PER_PAGE = 10;
+
+function getWorkflowTasks(mode = "ALL") {
+  const modeU = String(mode || "ALL").toUpperCase();
+
+  // Source of truth: state.tasks (not field.tasks)
+  const all = Object.values(state.tasks ?? {});
+
+  // Running = ACTIVE + isRunning true
+  const running = all.filter((t) => t && t.status === "ACTIVE" && t.isRunning === true);
+
+  // Filter by priority
+  let filtered = running;
+  if (modeU !== "ALL") {
+    filtered = running.filter((t) => String(t.priority || "LOW").toUpperCase() === modeU);
+  }
+
+  // Sort: priority (HIGH -> MED -> LOW), then older first
+  filtered.sort((a, b) => {
+    const pa = PRIORITY_ORDER.indexOf(String(a.priority || "LOW").toUpperCase());
+    const pb = PRIORITY_ORDER.indexOf(String(b.priority || "LOW").toUpperCase());
+    if (pa !== pb) return pb - pa;
+
+    const ta = a.startedAt || a.createdAt || "";
+    const tb = b.startedAt || b.createdAt || "";
+    return String(ta).localeCompare(String(tb));
+  });
+
+  return filtered;
+}
+
+
+function getWorkflowWaiting() {
+  const waiting = [];
+  const fields = getFieldList();
+  for (const fieldId of fields) {
+    const f = getField(fieldId);
+    if (!f) continue;
+
+    // Waiting for a manual decision (do NOT auto-create tasks here)
+    if (f.stage === "TILLAGE_CHOICE") {
+      waiting.push({ fieldId: String(fieldId), kind: "TILLAGE_CHOICE", label: "Odabir obrade (oranje/podrivanje)" });
+      continue;
+    }
+
+    // Waiting for seeding crop selection (no planned crop)
+    if (f.stage === "SEED_PICK" && !f.plannedCrop) {
+      waiting.push({ fieldId: String(fieldId), kind: "SEED_PICK", label: "Odabir sjetve (nije odabrano što se sije)" });
+      continue;
+    }
+  }
+
+  // Stable ordering: by field number
+  waiting.sort((a, b) => Number(a.fieldId) - Number(b.fieldId));
+  return waiting;
+}
+
+
+function boardPages(mode = "ALL") {
+  const total = getWorkflowTasks(mode).length;
+  return Math.max(1, Math.ceil(total / WORKFLOW_TASKS_PER_PAGE));
+}
+
+
+function renderWorkflowBoardEmbed(page = 0, mode = "ALL") {
+  const modeU = String(mode || "ALL").toUpperCase();
+  const modeLabel = modeU === "ALL" ? "Sve" : modeU === "HIGH" ? "Hitno" : modeU === "MED" ? "Srednje" : "Nisko";
+
+  const waiting = getWorkflowWaiting();
+  const runningAll = getWorkflowTasks("ALL"); // running tasks regardless of filter
+
+  const tasks = getWorkflowTasks(mode);
+  const totalPages = Math.max(1, Math.ceil(tasks.length / WORKFLOW_TASKS_PER_PAGE));
+  const safePage = Math.max(0, Math.min(totalPages - 1, page));
+  const slice = tasks.slice(safePage * WORKFLOW_TASKS_PER_PAGE, safePage * WORKFLOW_TASKS_PER_PAGE + WORKFLOW_TASKS_PER_PAGE);
+
+  const embed = new EmbedBuilder()
+    .setTitle(`FarmBudy – Polja — Aktivni zadaci`)
+    .setDescription(
+      `Pokrenuto: **${runningAll.length}**\n` +
+      `Čeka: **${waiting.length}**\n\n` +
+      `Filter: **${modeLabel}**\n`
+    );
+
+  if (slice.length) {
+    const lines = slice.map((t) => {
+      const p = String(t.priority || "LOW").toUpperCase();
+      const pIcon = p === "HIGH" ? "🔴" : p === "MED" ? "🟠" : "🟢";
+      const who = t.assignedTo ? ` <@${t.assignedTo}>` : "";
+      const title = t.title ? String(t.title) : "Zadatak";
+      return `• **Polje ${t.fieldId}** — ${title} — ${pIcon} **${p}**${who}`;
+    });
+    embed.addFields({ name: `Pokrenuto (${safePage + 1}/${totalPages})`, value: lines.join("\n").slice(0, 1024) });
+  } else {
+    embed.addFields({ name: "Pokrenuto", value: "*Nema pokrenutih zadataka za ovaj filter.*" });
+  }
+
+if (waiting.length) {
+    const waitLines = waiting.slice(0, 10).map((w) => {
+      const icon = w.kind === "TILLAGE_CHOICE" ? "🛠️" : "🌱";
+      return `• **Polje ${w.fieldId}** — ${icon} ${w.label}`;
+    });
+    const more = waiting.length > 10 ? `\n… i još **${waiting.length - 10}**` : "";
+    embed.addFields({ name: "Čeka odluku / odabir", value: (waitLines.join("\n") + more).slice(0, 1024) });
+  }
+
+  embed.setFooter({ text: `Str ${safePage + 1}/${totalPages} • Prikaz: ${WORKFLOW_TASKS_PER_PAGE}/str • Prev/Next • Filter` });
+  return embed;
+}
+
+
+
+
+function renderWorkflowBoardComponents(page = 0, mode = "ALL", selectedTaskId = null) {
+  const totalPages = boardPages(mode);
+  const safePage = Math.max(0, Math.min(totalPages - 1, page));
+  const modeU = String(mode || "ALL").toUpperCase();
+
+  const navRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`wf:board:prev:${safePage}:${modeU}`)
+      .setLabel("⬅️ Prev")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(safePage <= 0),
+    new ButtonBuilder()
+      .setCustomId(`wf:board:next:${safePage}:${modeU}`)
+      .setLabel("Next ➡️")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(safePage >= totalPages - 1)
+  );
+
+  const filterRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`wf:board:mode:ALL:${safePage}`).setLabel("Sve").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`wf:board:mode:HIGH:${safePage}`).setLabel("Hitno").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`wf:board:mode:MED:${safePage}`).setLabel("Srednje").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`wf:board:mode:LOW:${safePage}`).setLabel("Nisko").setStyle(ButtonStyle.Secondary)
+  );
+
+  // Allow basic users to finish a running task from the workflow board.
+  const all = getWorkflowTasks("ALL");
+  const opts = all.slice(0, 25).map((t) => ({
+    label: `Polje ${t.fieldId} — ${String(t.title || "Zadatak").slice(0, 60)}`,
+    value: String(t.id),
+  }));
+
+  const pickRow = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId("wf:donepick")
+      .setPlaceholder(all.length ? "Odaberi zadatak za završiti" : "Nema aktivnih zadataka")
+      .setMinValues(0)
+      .setMaxValues(1)
+      .setDisabled(!all.length)
+      .addOptions(opts.length ? opts : [{ label: "Nema", value: "none" }])
+  );
+
+  const doneRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(selectedTaskId ? `wf:done:${selectedTaskId}` : "wf:done:none")
+      .setLabel("✅ Završi odabrani")
+      .setStyle(ButtonStyle.Success)
+      .setDisabled(!selectedTaskId)
+  );
+
+  return [navRow, filterRow, pickRow, doneRow];
+}
+
+
+
+function buildFieldButtonsRows(fieldNums) {
+  const rows = [];
+  let btns = [];
+
+  for (const fieldNum of fieldNums) {
+    btns.push(
+      new ButtonBuilder()
+        .setCustomId(`wf:field:${fieldNum}`)
+        .setLabel(`Polje ${fieldNum}`)
+        .setStyle(ButtonStyle.Secondary)
+    );
+    if (btns.length === 5) {
+      rows.push(new ActionRowBuilder().addComponents(btns));
+      btns = [];
+    }
+  }
+
+if (btns.length) rows.push(new ActionRowBuilder().addComponents(btns));
+  return rows;
+}
+
+
+function renderActivityEmbed() {
+  const lines = (state.activity ?? []).slice(0, 12).map((a) => {
+    const t = new Date(a.ts).toLocaleString("hr-HR");
+    return `• **${t}** — ${a.text}`;
+  });
+  const desc = lines.length ? lines.join("\n") : "*Nema aktivnosti još.*";
+  return new EmbedBuilder().setTitle("FarmBudy – Activity").setDescription(desc).setColor(getEmbedColor("activity")).setTimestamp(new Date());
+}
+
+function getAdminView() {
+  state.panels = state.panels ?? {};
+  state.panels.admin = state.panels.admin ?? {};
+  const v = state.panels.admin.view;
+  return v ? String(v) : "ROOT";
+}
+
+function setAdminView(view) {
+  state.panels = state.panels ?? {};
+  state.panels.admin = state.panels.admin ?? {};
+  state.panels.admin.view = view;
+  saveState();
+}
+
+function renderAdminEmbed() {
+  const view = getAdminView();
+
+  const fields = getFieldList();
+
+  const logCh = state.config.logChannelId ? `<#${state.config.logChannelId}>` : "*nije postavljeno*";
+  const detailsDefault = state.config.detailsChannelId ? `<#${state.config.detailsChannelId}>` : "*auto (isti kanal kao panel)*";
+  const histCh = state.config.taskHistoryChannelId ? `<#${state.config.taskHistoryChannelId}>` : "*nije postavljeno*";
+  const backupCh = state.config.backupChannelId ? `<#${state.config.backupChannelId}>` : "*nije postavljeno*";
+
+  const panels = state.panels ?? {};
+  const admin = panels.admin ? `<#${panels.admin.channelId}>` : "*nije deployano*";
+  const wf = panels.workflow ? `<#${panels.workflow.channelId}>` : "*nije deployano*";
+  const det = panels.details ? `<#${panels.details.channelId}>` : "*nije deployano*";
+  const act = panels.activity ? `<#${panels.activity.channelId}>` : "*nije deployano*";
+
+  let title = "FarmBudy – Admin";
+  let lines = [];
+
+  if (view === "HELP") {
+    title = "FarmBudy – Admin • Help";
+    lines = [
+      "**Kako radi admin panel (trenutna verzija)**",
+      "",
+      "**Paneli**",
+      "- Deployaj panele kroz **POSTAVKE → Deploy panel**: odaberi panel + kanal + **Deploy** (bot će napraviti / obnoviti poruku).",
+      "- *Panel polja* je glavni UI za rad (lista zadataka + detalji polja).",
+      "",
+      "**Kanali**",
+      `- Log kanal: ${logCh} (admin + greške, bez spama)`,
+      `- Default kanal panela polja: ${detailsDefault} (ako panel nije deployan ručno)`,
+      `- Task history kanal: ${histCh} (završeni taskovi / povijest + dnevni sažetak)`,
+      `- Backup kanal: ${backupCh} (state.json backup / restore)`,
+      "",
+      "**Važno**",
+      "- Activity je OFF (nema start/pause spama; povijest dobiva samo DONE + dnevni sažetak).",
+      "- Kanali se biraju iz padajućih izbornika (ne treba ID). Paneli se deployaju na isti način.",
+      "- Polja se uređuju u izborniku **Polja** (format `6,7,10-15`).",
+    ];
+  } else if (view === "PANELS") {
+    title = "FarmBudy – Admin • Paneli";
+    lines = [
+      "**Paneli**",
+      "",
+      `Admin panel: ${admin}`,
+      `Field panel: ${det}`,
+      `Workflow board: ${wf}`,
+      `Activity panel: ${act}`,
+      "",
+      "Tip: Deployaj **Panel polja** u kanal gdje ekipa radi (i pinaj).",
+    ];
+  } else if (view === "CHANNELS") {
+    title = "FarmBudy – Admin • Kanali";
+    lines = [
+      "**Odabir kanala**",
+      "",
+      "Odaberi kanale ispod (dropdown). Promjena se sprema odmah.",
+      "",
+      `Log kanal: ${logCh}`,
+      `Default kanal panela polja: ${detailsDefault}`,
+      `Task history kanal: ${histCh}`,
+    ];
+
+  } else if (view === "ONBOARDING") {
+    title = "FarmBudy – Admin • Onboarding";
+    const w = state.config?.welcome ?? {};
+    const g = state.config?.goodbye ?? {};
+    const sec = state.config?.security ?? {};
+    lines = [
+      "**Welcome**",
+      `- Status: ${w.enabled ? "ON" : "OFF"}`,
+      `- Kanal: ${w.channelId ? `<#${w.channelId}>` : "*nije postavljeno*"}`,
+      "",
+      "**Goodbye**",
+      `- Status: ${g.enabled ? "ON" : "OFF"}`,
+      `- Kanal: ${g.channelId ? `<#${g.channelId}>` : "*nije postavljeno*"}`,
+      "",
+      "**Verification / Roles**",
+      `- Verification kanal: ${sec.verificationChannelId ? `<#${sec.verificationChannelId}>` : "*nije postavljeno*"}`,
+      `- Member role: ${sec.memberRoleId ? `<@&${sec.memberRoleId}>` : "*nije postavljeno*"}`,
+      `- Quarantine role: ${sec.quarantineRoleId ? `<@&${sec.quarantineRoleId}>` : "*nije postavljeno*"}`,
+      `- Min account age: **${Number(sec.minAccountAgeDays ?? 0)}** dana`,
+    ];
+  } else if (view === "MODERATION") {
+    title = "FarmBudy – Admin • Moderation";
+    const modLog = state.config?.modLogChannelId ? `<#${state.config.modLogChannelId}>` : "*nije postavljeno*";
+    lines = [
+      "**Moderation komande**",
+      "- `/kick user reason`",
+      "- `/ban user reason delete_days`",
+      "- `/timeout user minutes reason`",
+      "- `/unban user_id reason`",
+      "",
+      `Mod log kanal: ${modLog} (ako nije postavljeno, koristi Log kanal)`,
+    ];
+  } else if (view === "SECURITY") {
+    title = "FarmBudy – Admin • Security";
+    const sec = state.config?.security ?? {};
+    const as = sec.antiScam ?? {};
+    const ar = sec.antiRaid ?? {};
+    lines = [
+      "**Anti-scam**",
+      `- Status: ${as.enabled ? "ON" : "OFF"}`,
+      `- Linkovi za neverificirane: ${as.blockLinksForUnverified ? "ON" : "OFF"}`,
+      `- Timeout: **${Number(as.timeoutMinutes ?? 10)}** min`,
+      `- Keywords: ${(as.keywords ?? []).slice(0, 6).join(", ")}${(as.keywords ?? []).length > 6 ? "..." : ""}`,
+      "",
+      "**Anti-raid**",
+      `- Status: ${ar.enabled ? "ON" : "OFF"}`,
+      `- Prag: **${Number(ar.maxJoins ?? 5)}** joinova / **${Number(ar.windowSec ?? 30)}s**`,
+      `- Lockdown: **${Number(ar.lockdownMinutes ?? 10)}** min`,
+    ];
+  } else if (view === "BACKUP") {
+    title = "FarmBudy – Admin • Backup";
+    const backupCh = state.config?.backupChannelId ? `<#${state.config.backupChannelId}>` : "Not set";
+    lines = [
+      `Backup channel: ${backupCh}`,
+      "",
+      "Use **Backup now** to upload a fresh state.json, or **Restore latest** to restore from the last backup.",
+      "",
+      "Restore will remove old panel messages and re-post fresh ones (where possible)."
+    ];
+  } else if (view === "FIELDS") {
+    title = "FarmBudy – Admin • Fields";
+    lines = [
+      "**Manage fields**",
+      "",
+      `Fields (${fields.length}): ${fields.slice(0, 30).join(", ")}${fields.length > 30 ? "..." : ""}`,
+      "",
+      "Use buttons below to Add/Remove (format: `6,7,10-15`).",
+    ];
+  } else {
+    // ROOT
+    lines = [
+      "**Admin panel**",
+      "Choose a category below: **SETTINGS**, **ONBOARDING**, **MODERATION**, **SECURITY**, **BACKUP**, **FIELDS**, **HELP**.",
+      "",
+      `Field panel: ${det} • Workflow: ${wf} • Activity: ${act}`,
+      `Log: ${logCh} • Task history: ${histCh}`,
+      "",
+      `Fields (${fields.length}): ${fields.slice(0, 30).join(", ")}${fields.length > 30 ? "..." : ""}`,
+    ];
+  }
+
+  const desc = lines.join("\n");
+  return new EmbedBuilder()
+    .setTitle(title)
+    .setDescription(desc)
+    .setColor(getEmbedColor("admin"))
+    .setTimestamp(new Date());
+}
+
+function renderAdminComponents() {
+  const view = getAdminView();
+
+  // ROOT
+  if (view === "ROOT") {
+    const r1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:view:setup").setLabel("SETTINGS").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:view:onboarding").setLabel("ONBOARDING").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:view:moderation").setLabel("MODERATION").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:view:security").setLabel("SECURITY").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:view:fields").setLabel("FIELDS").setStyle(ButtonStyle.Secondary),
+    );
+
+    const r2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:view:backup").setLabel("BACKUP").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:view:help").setLabel("HELP").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:refresh").setLabel("REFRESH").setStyle(ButtonStyle.Secondary)
+    );
+
+    return [r1, r2];
+  }
+
+  // BACKUP
+  if (view === "BACKUP") {
+    const r0 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:view:root").setLabel("Back").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("admin:refresh").setLabel("REFRESH").setStyle(ButtonStyle.Secondary)
+    );
+    const chId = state.config.backupChannelId;
+    const chSelect = new ChannelSelectMenuBuilder()
+      .setCustomId("admin:backup:channel")
+      .setPlaceholder("Backup channel")
+      .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+      .setMinValues(1).setMaxValues(1);
+    if (chId) chSelect.setDefaultChannels([chId]);
+    const r1 = new ActionRowBuilder().addComponents(chSelect);
+    const r2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:backup:now").setLabel("Backup now").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:backup:restore").setLabel("Restore latest").setStyle(ButtonStyle.Secondary)
+    );
+    return [r0, r1, r2];
+  }
+
+  // SETUP (PANELS + CHANNELS)
+  if (view === "SETUP") {
+    state.panels = state.panels ?? {};
+    state.panels.admin = state.panels.admin ?? {};
+    state.panels.admin.setup = state.panels.admin.setup ?? { section: "DEPLOY" };
+    const section = state.panels.admin.setup.section ?? "DEPLOY";
+
+    const r0 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:view:root").setLabel("Back").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("admin:refresh").setLabel("REFRESH").setStyle(ButtonStyle.Secondary)
+    );
+
+    const sectionSelect = new StringSelectMenuBuilder()
+      .setCustomId("admin:setup:section")
+      .setPlaceholder("Choose an option")
+      .addOptions(
+        new StringSelectMenuOptionBuilder().setLabel("Deploy panel").setValue("DEPLOY").setDefault(section === "DEPLOY"),
+        new StringSelectMenuOptionBuilder().setLabel("Log channel").setValue("LOG").setDefault(section === "LOG"),
+        new StringSelectMenuOptionBuilder().setLabel("Task history channel").setValue("HISTORY").setDefault(section === "HISTORY"),
+        new StringSelectMenuOptionBuilder().setLabel("Backup channel").setValue("BACKUP").setDefault(section === "BACKUP"),
+        new StringSelectMenuOptionBuilder().setLabel("Default channel (Field panel)").setValue("DETAILS").setDefault(section === "DETAILS"),
+        new StringSelectMenuOptionBuilder().setLabel("Field panel title").setValue("TITLE").setDefault(section === "TITLE")
+      );
+
+    const r1 = new ActionRowBuilder().addComponents(sectionSelect);
+
+    if (section === "DEPLOY") {
+      const sel = state.panels.admin.panelDeploy ?? { panel: "details", channelId: state.config.detailsChannelId ?? null };
+
+      const panelSelect = new StringSelectMenuBuilder()
+        .setCustomId("admin:setup:selectpanel")
+        .setPlaceholder("Select panel")
+        .addOptions(
+          new StringSelectMenuOptionBuilder().setLabel("Field panel").setValue("details").setDefault(sel.panel === "details"),
+          new StringSelectMenuOptionBuilder().setLabel("Workflow").setValue("workflow").setDefault(sel.panel === "workflow"),
+          new StringSelectMenuOptionBuilder().setLabel("Activity").setValue("activity").setDefault(sel.panel === "activity"),
+          new StringSelectMenuOptionBuilder().setLabel("Admin").setValue("admin").setDefault(sel.panel === "admin")
+        );
+
+      const chSelect = new ChannelSelectMenuBuilder()
+        .setCustomId("admin:setup:selectchannel")
+        .setPlaceholder("Select channel to deploy")
+        .setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement);
+
+      if (sel.channelId) chSelect.setDefaultChannels([sel.channelId]);
+
+      const r2 = new ActionRowBuilder().addComponents(panelSelect);
+      const r3 = new ActionRowBuilder().addComponents(chSelect);
+
+      const r4 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("admin:setup:deploy").setLabel("Deploy").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("admin:paneltitle").setLabel("Title").setStyle(ButtonStyle.Secondary)
+      );
+
+      return [r0, r1, r2, r3, r4];
+    }
+
+if (section === "TITLE") {
+      const r2 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("admin:paneltitle").setLabel("Change title").setStyle(ButtonStyle.Secondary)
+      );
+      return [r0, r1, r2];
+    }
+
+    // Channel sections
+    let chId = null;
+    let selectId = null;
+
+    if (section === "LOG") {
+      chId = state.config.logChannelId;
+      selectId = "admin:setup:ch:log";
+    } else if (section === "HISTORY") {
+      chId = state.config.taskHistoryChannelId;
+      selectId = "admin:setup:ch:history";
+    } else if (section === "DETAILS") {
+      chId = state.config.detailsChannelId;
+      selectId = "admin:setup:ch:detailsDefault";
+    } else if (section === "BACKUP") {
+      chId = state.config.backupChannelId;
+      selectId = "admin:setup:ch:backup";
+    }
+
+
+    const chSelect = new ChannelSelectMenuBuilder()
+      .setCustomId(selectId)
+      .setPlaceholder("Select channel")
+      .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+      .setMinValues(1)
+      .setMaxValues(1);
+
+    if (chId) chSelect.setDefaultChannels([chId]);
+
+    const r2 = new ActionRowBuilder().addComponents(chSelect);
+
+    const rows = [r0, r1, r2];
+    if (section === "BACKUP") {
+      rows.push(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("admin:setup:backupNow").setLabel("Backup now").setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId("admin:setup:restoreLast").setLabel("Restore latest").setStyle(ButtonStyle.Secondary)
+        )
+      );
+    }
+
+    return rows;
+  }
+
+  // ONBOARDING
+  if (view === "ONBOARDING") {
+    state.panels = state.panels ?? {};
+    state.panels.admin = state.panels.admin ?? {};
+    state.panels.admin.onboarding = state.panels.admin.onboarding ?? { section: "WELCOME" };
+    const section = state.panels.admin.onboarding.section ?? "WELCOME";
+
+    const r0 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:view:root").setLabel("Back").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("admin:refresh").setLabel("REFRESH").setStyle(ButtonStyle.Secondary)
+    );
+
+    const sectionSelect = new StringSelectMenuBuilder()
+      .setCustomId("admin:onboarding:section")
+      .setPlaceholder("Choose an option")
+      .addOptions(
+        new StringSelectMenuOptionBuilder().setLabel("Welcome").setValue("WELCOME").setDefault(section === "WELCOME"),
+        new StringSelectMenuOptionBuilder().setLabel("Goodbye").setValue("GOODBYE").setDefault(section === "GOODBYE"),
+        new StringSelectMenuOptionBuilder().setLabel("Verification / Roles").setValue("VERIFY").setDefault(section === "VERIFY")
+      );
+
+    const r1 = new ActionRowBuilder().addComponents(sectionSelect);
+
+    if (section === "WELCOME") {
+      const w = state.config.welcome ?? {};
+      const chSel = new ChannelSelectMenuBuilder()
+        .setCustomId("admin:onboarding:welcome:channel")
+        .setPlaceholder("Welcome kanal")
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+        .setMinValues(1).setMaxValues(1);
+      if (w.channelId) chSel.setDefaultChannels([w.channelId]);
+
+      const r2 = new ActionRowBuilder().addComponents(chSel);
+      const r3 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("admin:onboarding:welcome:toggle").setLabel(w.enabled ? "Welcome: ON" : "Welcome: OFF").setStyle(w.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("admin:onboarding:welcome:message").setLabel("Message").setStyle(ButtonStyle.Secondary)
+      );
+      return [r0, r1, r2, r3];
+    }
+
+if (section === "GOODBYE") {
+      const g = state.config.goodbye ?? {};
+      const chSel = new ChannelSelectMenuBuilder()
+        .setCustomId("admin:onboarding:goodbye:channel")
+        .setPlaceholder("Goodbye kanal")
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+        .setMinValues(1).setMaxValues(1);
+      if (g.channelId) chSel.setDefaultChannels([g.channelId]);
+
+      const r2 = new ActionRowBuilder().addComponents(chSel);
+      const r3 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("admin:onboarding:goodbye:toggle").setLabel(g.enabled ? "Goodbye: ON" : "Goodbye: OFF").setStyle(g.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("admin:onboarding:goodbye:message").setLabel("Message").setStyle(ButtonStyle.Secondary)
+      );
+      return [r0, r1, r2, r3];
+    }
+
+    // VERIFY
+    const sec = state.config.security ?? {};
+    const verCh = new ChannelSelectMenuBuilder()
+      .setCustomId("admin:onboarding:verify:channel")
+      .setPlaceholder("Verification kanal")
+      .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+      .setMinValues(1).setMaxValues(1);
+    if (sec.verificationChannelId) verCh.setDefaultChannels([sec.verificationChannelId]);
+
+    const r2 = new ActionRowBuilder().addComponents(verCh);
+
+    const r3 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:onboarding:roles").setLabel("Role postavke").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:onboarding:minage").setLabel("Min account age").setStyle(ButtonStyle.Secondary)
+    );
+
+    return [r0, r1, r2, r3];
+  }
+
+  // MODERATION
+  if (view === "MODERATION") {
+    const r0 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:view:root").setLabel("Back").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("admin:refresh").setLabel("REFRESH").setStyle(ButtonStyle.Secondary)
+    );
+
+    const modSelect = new ChannelSelectMenuBuilder()
+      .setCustomId("admin:moderation:modlog")
+      .setPlaceholder("Odaberi mod log kanal")
+      .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+      .setMinValues(1)
+      .setMaxValues(1);
+
+    if (state.config.modLogChannelId) modSelect.setDefaultChannels([state.config.modLogChannelId]);
+
+    const r1 = new ActionRowBuilder().addComponents(modSelect);
+    return [r0, r1];
+  }
+
+  // SECURITY
+  if (view === "SECURITY") {
+    state.panels = state.panels ?? {};
+    state.panels.admin = state.panels.admin ?? {};
+    state.panels.admin.security = state.panels.admin.security ?? { section: "ANTISCAM" };
+    const section = state.panels.admin.security.section ?? "ANTISCAM";
+
+    const r0 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:view:root").setLabel("Back").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("admin:refresh").setLabel("REFRESH").setStyle(ButtonStyle.Secondary)
+    );
+
+    const sectionSelect = new StringSelectMenuBuilder()
+      .setCustomId("admin:security:section")
+      .setPlaceholder("Choose an option")
+      .addOptions(
+        new StringSelectMenuOptionBuilder().setLabel("Anti-scam").setValue("ANTISCAM").setDefault(section === "ANTISCAM"),
+        new StringSelectMenuOptionBuilder().setLabel("Anti-raid").setValue("ANTIRAID").setDefault(section === "ANTIRAID")
+      );
+
+    const r1 = new ActionRowBuilder().addComponents(sectionSelect);
+
+    if (section === "ANTISCAM") {
+      const as = state.config.security?.antiScam ?? {};
+      const r2 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("admin:security:antiscam:toggle").setLabel(as.enabled ? "Anti-scam: ON" : "Anti-scam: OFF").setStyle(as.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("admin:security:antiscam:links").setLabel(as.blockLinksForUnverified ? "Block links: ON" : "Block links: OFF").setStyle(as.blockLinksForUnverified ? ButtonStyle.Success : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("admin:security:antiscam:timeout").setLabel("Timeout").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("admin:security:antiscam:keywords").setLabel("Keywords").setStyle(ButtonStyle.Secondary)
+      );
+      return [r0, r1, r2];
+    }
+
+    const ar = state.config.security?.antiRaid ?? {};
+    const r2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:security:antiraid:toggle").setLabel(ar.enabled ? "Anti-raid: ON" : "Anti-raid: OFF").setStyle(ar.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:security:antiraid:threshold").setLabel("Prag").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:security:antiraid:lockdown").setLabel("Lockdown").setStyle(ButtonStyle.Secondary)
+    );
+    return [r0, r1, r2];
+  }
+
+
+
+  // PANELS
+  if (view === "PANELS") {
+    state.panels = state.panels ?? {};
+    state.panels.admin = state.panels.admin ?? {};
+    state.panels.admin.panelDeploy = state.panels.admin.panelDeploy ?? {
+      panel: "details",
+      channelId: state.config.detailsChannelId ?? null,
+    };
+
+    const sel = state.panels.admin.panelDeploy;
+
+    const panelSelect = new StringSelectMenuBuilder()
+      .setCustomId("admin:panels:selectpanel")
+      .setPlaceholder("Select panel")
+      .addOptions(
+        new StringSelectMenuOptionBuilder().setLabel("Field panel").setValue("details").setDefault(sel.panel === "details"),
+        new StringSelectMenuOptionBuilder().setLabel("Workflow").setValue("workflow").setDefault(sel.panel === "workflow"),
+        new StringSelectMenuOptionBuilder().setLabel("Activity").setValue("activity").setDefault(sel.panel === "activity"),
+        new StringSelectMenuOptionBuilder().setLabel("Admin").setValue("admin").setDefault(sel.panel === "admin")
+      );
+
+    const chSelect = new ChannelSelectMenuBuilder()
+      .setCustomId("admin:panels:selectchannel")
+      .setPlaceholder("Select channel to deploy")
+      .setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement);
+
+    if (sel.channelId) chSelect.setDefaultChannels([sel.channelId]);
+
+    const r0 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:view:root").setLabel("Back").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("admin:refresh").setLabel("REFRESH").setStyle(ButtonStyle.Secondary)
+    );
+
+    const r1 = new ActionRowBuilder().addComponents(panelSelect);
+    const r2 = new ActionRowBuilder().addComponents(chSelect);
+
+    const r3 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:panels:deploy").setLabel("Deploy").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:paneltitle").setLabel("Field panel title").setStyle(ButtonStyle.Secondary)
+    );
+
+    return [r0, r1, r2, r3];
+  }
+
+  // CHANNELS
+  if (view === "CHANNELS") {
+    const r0 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:view:root").setLabel("Back").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("admin:refresh").setLabel("REFRESH").setStyle(ButtonStyle.Secondary)
+    );
+
+    const logSelect = new ChannelSelectMenuBuilder()
+      .setCustomId("admin:ch:log")
+      .setPlaceholder("Odaberi log kanal")
+      .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+      .setMinValues(1)
+      .setMaxValues(1);
+
+    if (state.config.logChannelId) logSelect.setDefaultChannels([state.config.logChannelId]);
+
+    const detailsSelect = new ChannelSelectMenuBuilder()
+      .setCustomId("admin:ch:detailsDefault")
+      .setPlaceholder("Odaberi default kanal panela polja")
+      .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+      .setMinValues(1)
+      .setMaxValues(1);
+
+    if (state.config.detailsChannelId) detailsSelect.setDefaultChannels([state.config.detailsChannelId]);
+
+    const histSelect = new ChannelSelectMenuBuilder()
+      .setCustomId("admin:ch:history")
+      .setPlaceholder("Odaberi kanal za task history")
+      .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+      .setMinValues(1)
+      .setMaxValues(1);
+
+    if (state.config.taskHistoryChannelId) histSelect.setDefaultChannels([state.config.taskHistoryChannelId]);
+
+    const r1 = new ActionRowBuilder().addComponents(logSelect);
+    const r2 = new ActionRowBuilder().addComponents(detailsSelect);
+    const r3 = new ActionRowBuilder().addComponents(histSelect);
+
+    return [r0, r1, r2, r3];
+  }
+
+  // FIELDS
+  if (view === "FIELDS") {
+    const r1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin:fields:add").setLabel("Add Field(s)").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:fields:remove").setLabel("Remove Field(s)").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("admin:view:root").setLabel("Back").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("admin:refresh").setLabel("REFRESH").setStyle(ButtonStyle.Secondary)
+    );
+    return [r1];
+  }
+
+  // HELP
+  const r1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("admin:view:root").setLabel("Back").setStyle(ButtonStyle.Primary)
+  );
+  return [r1];
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// FIELD DETAILS PANEL (persistent message)
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+function nextStageKey(currentKey) {
+  // Returns the *next* stage in the workflow (not the current one)
+  switch (currentKey) {
+    case "LIME":
+      return "FERTILIZE";
+    case "FERTILIZE":
+      return "TILLAGE_CHOICE";
+    case "TILLAGE_CHOICE":
+      return null; // depends on choice
+    case "PLOW":
+    case "SUBSOIL":
+      return "CULTIVATE";
+    case "CULTIVATE":
+      return "SEED_PICK";
+    case "SEED_PICK":
+      return null; // depends on crop choice
+    case "SEED":
+      return "HARVEST";
+    case "HARVEST":
+      return "LIME";
+    default:
+      return null;
+  }
+}
+
+function stageNextHint(fieldId) {
+  const f = getField(fieldId);
+
+  // Waiting stages (need user input)
+  if (f.stage === "TILLAGE_CHOICE") {
+    return "Odaberi obradu: **Oranje** / **Podrivanje** (ili **Preskoči**).";
+  }
+
+if (f.stage === "SEED_PICK") {
+    if (f.plannedCrop) {
+      const c = CROPS.find((x) => x.key === f.plannedCrop);
+      if (c) return `${STAGES.SEED.emoji} **Sjetva** • plan: ${c.emoji} **${c.label}**`;
+    }
+    return "Odaberi kulturu za sjetvu (ili postavi plan sjetve).";
+  }
+
+  const nextKey = nextStageKey(f.stage);
+  const next = nextKey ? STAGES[nextKey] : null;
+  if (next) return `${next.emoji} **${next.label}**`;
+
+  // Fallback
+  return "**nepoznato**";
+}
+
+function priorityRank(p) {
+  const v = String(p ?? "MED").toUpperCase();
+  if (v === "HIGH") return 0;
+  if (v === "MED") return 1;
+  if (v === "LOW") return 2;
+  return 1;
+}
+
+function priorityLine(task) {
+  const p = PRIORITY[task.priority ?? "MED"] ?? PRIORITY.MED;
+  return `${p.emoji} **${p.label}**`;
+}
+
+function plannedCropLine(fieldId) {
+  const f = getField(fieldId);
+  // Planned crop is meant as the *next* crop; if it matches current crop, treat as not set to avoid confusion.
+  if (!f.plannedCrop || f.plannedCrop === f.crop) return "*nije postavljeno*";
+  const c = CROPS.find((x) => x.key === f.plannedCrop);
+  return c ? `${c.emoji} **${c.label}**` : `**${f.plannedCrop}**`;
+}
+
+function buildCropPickerComponents(fieldId) {
+  const f = getField(fieldId);
+
+  const cropButtons = CROPS.map((c) =>
+    new ButtonBuilder()
+      .setCustomId(`fd:crop:${fieldId}:${c.key}`)
+      .setLabel(`${c.emoji} ${c.label}`)
+      .setStyle(f.plannedCrop === c.key ? ButtonStyle.Success : ButtonStyle.Secondary)
+  );
+
+  const rows = [];
+  for (let i = 0; i < cropButtons.length; i += 5) {
+    rows.push(new ActionRowBuilder().addComponents(cropButtons.slice(i, i + 5)));
+  }
+
+  // Clear plan (kept as a separate row; in crop picker view we hide the filter row to stay within 5 rows total)
+  rows.push(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`fd:crop:${fieldId}:CLEAR`)
+        .setLabel("🧹 Obriši plan")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(!f.plannedCrop)
+    )
+  );
+
+  
+// Back / Deselect
+rows.push(
+  new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("fd:back")
+      .setLabel("Lista")
+      .setEmoji("📋")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`fd:back:${fieldId}`)
+      .setLabel("Back")
+      .setStyle(ButtonStyle.Primary)
+  )
+);
+
+return rows;
+}
+
+function activeCropLine(fieldId) {
+  const f = getField(fieldId);
+  if (!f.crop) return "*nije postavljeno*";
+  const c = CROPS.find((x) => x.key === f.crop);
+  return c ? `${c.emoji} **${c.label}**` : `**${f.crop}**`;
+}
+
+function buildFieldDetailsEmbed(fieldId) {
+  ensureConfig();
+
+  state.panels = state.panels ?? {};
+  state.panels.details = state.panels.details ?? {};
+  const meta = state.panels.details;
+
+  const filter = meta.filter ?? "ALL";
+  const view = meta.view ?? "MAIN";
+
+  const fieldPageSize = 3;
+  const activePageSize = 10;
+  const tasksPageSize = 10;
+
+  const fieldsAll = getFieldList();
+
+  const filteredFields = fieldsAll
+    .filter((fid) => {
+      const f = getField(fid);
+      const tasks = listTasksForField(fid);
+      const active = getActiveTask(fid);
+      const hasActive = !!active && active.status === "ACTIVE";
+      const hasOpen = tasks.some((t) => t.status === "OPEN");
+      const waiting =
+        f.stage === "TILLAGE_CHOICE" ||
+        f.stage === "SEED_PICK" ||
+        (active && (active.stageKey === "TILLAGE_CHOICE" || active.stageKey === "SEED_PICK"));
+
+      if (filter === "ACTIVE") return hasActive;
+      if (filter === "DONE") return tasks.some((t) => t.status === "DONE");
+      if (filter === "WAITING") return waiting;
+      if (filter === "URGENT") return hasActive && (active?.priority ?? "MED") === "HIGH";
+      // ALL
+      return true;
+    })
+    .sort((a, b) => {
+      // Sorting must follow filter intent (priority first when relevant)
+      if (filter === "ACTIVE" || filter === "URGENT") {
+        const aa = getActiveTask(a);
+        const bb = getActiveTask(b);
+        const ar = priorityRank(aa?.priority ?? "MED");
+        const br = priorityRank(bb?.priority ?? "MED");
+        if (ar !== br) return ar - br;
+        return Number(a) - Number(b);
+      }
+
+if (filter === "WAITING") {
+        const fa = getField(a);
+        const fb = getField(b);
+        const ra = fa.stage === "TILLAGE_CHOICE" ? 0 : fa.stage === "SEED_PICK" ? 1 : 2;
+        const rb = fb.stage === "TILLAGE_CHOICE" ? 0 : fb.stage === "SEED_PICK" ? 1 : 2;
+        if (ra !== rb) return ra - rb;
+        return Number(a) - Number(b);
+      }
+      return Number(a) - Number(b);
+    });
+
+  const totalFieldPages = Math.max(1, Math.ceil(filteredFields.length / fieldPageSize));
+  const safeFieldPage = Math.min(Math.max(Number(meta.page ?? 0), 0), totalFieldPages - 1);
+
+  const pageFields = filteredFields.slice(
+    safeFieldPage * fieldPageSize,
+    safeFieldPage * fieldPageSize + fieldPageSize
+  );
+
+  const explicit = (fieldId === null ? null : (fieldId ?? meta.fieldId));
+
+  // If nothing is selected, show a clean "Active tasks" view (workflow merged into this panel).
+  if (explicit === null || explicit === undefined) {
+    meta.fieldId = null;
+    meta.view = "LIST";
+
+    // Build a single list of "active work": one *running* ACTIVE task per field.
+    // Paused tasks are not shown here.
+    const workAll = fieldsAll
+      .map((fid) => {
+        const t = getActiveTask(fid);
+        return { fieldId: String(fid), task: t };
+      })
+      .filter((x) => x.task && x.task.status === "ACTIVE" && !!x.task.isRunning);
+
+    workAll.sort((a, b) => {
+      const sa = a.task.status === "ACTIVE" ? 0 : 1;
+      const sb = b.task.status === "ACTIVE" ? 0 : 1;
+      if (sa !== sb) return sa - sb;
+
+      const ar = priorityRank(a.task?.priority ?? "MED");
+      const br = priorityRank(b.task?.priority ?? "MED");
+      if (ar !== br) return ar - br;
+
+      return Number(a.fieldId) - Number(b.fieldId);
+    });
+
+    const totalPages = Math.max(1, Math.ceil(workAll.length / activePageSize));
+    const page = Math.min(Math.max(Number(meta.activePage ?? 0), 0), totalPages - 1);
+    meta.activePage = page;
+
+    const slice = workAll.slice(page * activePageSize, page * activePageSize + activePageSize);
+
+    const lines = slice.map((x) => {
+      const t = x.task;
+      const p = PRIORITY[t.priority ?? "MED"] ?? PRIORITY.MED;
+      const who = t.assignedTo ? ` <@${t.assignedTo}>` : "";
+      const title = t.title ?? ((STAGES[t.stageKey]?.emoji ?? "📌") + " " + (STAGES[t.stageKey]?.label ?? t.stageKey));
+      return `• **Polje ${x.fieldId}** — ${title} — ${p.emoji} ${p.label}${who}`;
+    });
+
+    const summaryLine = `Pokrenuto: **${workAll.length}**`;
+
+    const desc = lines.length
+      ? `${summaryLine}\n\n${lines.join("\n")}`
+      : `_Nema aktivnih zadataka._\n\n${summaryLine}`;
+
+    return new EmbedBuilder()
+      .setTitle(`${getFieldsPanelTitle()} — Aktivni zadaci`)
+      .setDescription(desc)
+      .setFooter({ text: `Str ${page + 1}/${totalPages} • Prikaz: ${activePageSize}/str • Odaberi polje ili 🔢 Polje` });
+  }
+
+  const selected = String(explicit ?? pageFields[0] ?? filteredFields[0] ?? (fieldsAll[0] ?? 1));
+  meta.fieldId = selected;
+
+// Ensure task context exists for selected field
+  ensureNextForField(selected);
+
+  const f = getField(selected);
+  const stage = STAGES[f.stage] ?? { label: f.stage ?? "?", emoji: "📌" };
+
+  const tasks = listTasksForField(selected);
+  const active = getActiveTask(selected);
+
+  const counts = {
+    open: tasks.filter((t) => t.status === "OPEN").length,
+    active: tasks.filter((t) => t.status === "ACTIVE").length,
+    done: tasks.filter((t) => t.status === "DONE").length,
+  };
+
+  const detailsLines = [
+    `Polje: **${selected}**`,
+    `Ciklus: **${f.cycle ?? 1}**`,
+    `Trenutno: ${stage.emoji} **${stage.label}**`,
+    `Sljedeće: ${stageNextHint(selected)}`,
+    `Plan sjetve (sljedeća): ${plannedCropLine(selected)}`,
+    `Kultura (trenutna): ${activeCropLine(selected)}`,
+    `Taskovi: OPEN **${counts.open}** | ACTIVE **${counts.active}** | DONE **${counts.done}**`,
+  ].join("\n");
+
+  // Selected field tasks list (OPEN/ACTIVE), paged in TASKS view
+  const tasksForList = tasks
+    .filter((t) => t.status === "ACTIVE" || t.status === "OPEN")
+    .slice()
+    .sort((a, b) => {
+      const sa = a.status === "ACTIVE" ? 0 : 1;
+      const sb = b.status === "ACTIVE" ? 0 : 1;
+      if (sa !== sb) return sa - sb;
+
+      const pa = priorityRank(a.priority ?? "MED");
+      const pb = priorityRank(b.priority ?? "MED");
+      if (pa !== pb) return pa - pb;
+
+      // tie-breaker: numeric task id if possible
+      const na = Number(String(a.id).replace(/^\D+/, "")) || 0;
+      const nb = Number(String(b.id).replace(/^\D+/, "")) || 0;
+      if (na !== nb) return nb - na;
+      return 0;
+    });
+
+  const totalTasksPages = Math.max(1, Math.ceil(tasksForList.length / tasksPageSize));
+  const safeTasksPage = Math.min(Math.max(Number(meta.tasksPage ?? 0), 0), totalTasksPages - 1);
+
+  const tasksSlice = (view === "TASKS")
+    ? tasksForList.slice(safeTasksPage * tasksPageSize, safeTasksPage * tasksPageSize + tasksPageSize)
+    : tasksForList.slice(0, 5);
+
+  const taskListLines = tasksSlice.map((t) => {
+    const p = PRIORITY[t.priority ?? "MED"] ?? PRIORITY.MED;
+    const who = t.assignedTo ? ` <@${t.assignedTo}>` : "";
+    const title = t.title ?? ((STAGES[t.stageKey]?.emoji ?? "📌") + " " + (STAGES[t.stageKey]?.label ?? t.stageKey));
+    const status = t.status === "ACTIVE" ? "🟢" : "🟠";
+    return `${status} **${formatTaskId(t.id)}** • ${title} • ${p.emoji} ${p.label}${who}`;
+  });
+
+  const tasksListValue = taskListLines.length ? taskListLines.join("\n") : "_Nema OPEN/ACTIVE zadataka._";
+  const tasksFieldName = (view === "TASKS")
+    ? `Zadaci polja (str ${safeTasksPage + 1}/${totalTasksPages} • OPEN/ACTIVE)`
+    : "Zadaci polja (TOP 5 • OPEN/ACTIVE)";
+
+  const titleBase = state.config?.fieldsPanelTitle ?? "FarmBudy – Polja";
+
+  const embed = new EmbedBuilder()
+    .setTitle(`${titleBase} — Polje ${selected}`)
+    .setColor(getEmbedColor())
+    .addFields(
+      { name: "Sažetak polja", value: detailsLines },
+      { name: tasksFieldName, value: tasksListValue }
+    )
+    .setFooter({ text: `Polja/str: ${fieldPageSize} • Zadaci/str: ${tasksPageSize} • Aktivni/str: ${activePageSize}` });
+
+  return embed;
+}
+
+
+function buildFieldDetailsComponents(fieldId) {
+  ensureConfig();
+
+  state.panels = state.panels ?? {};
+  state.panels.details = state.panels.details ?? {};
+  const meta = state.panels.details;
+
+  const fieldPageSize = 3;
+  const activePageSize = 10;
+
+  const fieldsAll = getFieldList();
+  const totalFieldPages = Math.max(1, Math.ceil(fieldsAll.length / fieldPageSize));
+  const safeFieldPage = Math.min(Math.max(Number(meta.page ?? 0), 0), totalFieldPages - 1);
+  meta.page = safeFieldPage;
+
+  const pageFields = fieldsAll.slice(safeFieldPage * fieldPageSize, safeFieldPage * fieldPageSize + fieldPageSize);
+
+  const selected = (fieldId === null ? null : (fieldId ?? meta.fieldId));
+  const hasSelection = selected !== null && selected !== undefined;
+
+  const view = meta.view ?? "MAIN";
+  // Crop picker view (Plan sjetve)
+  if (hasSelection && view === "PLAN_PICK") {
+    return buildCropPickerComponents(String(meta.fieldId));
+  }
+
+  const rows = [];
+
+
+  // Row: Active list paging (only meaningful in list view)
+  if (!hasSelection) {
+    // Build work list length to decide paging enablement
+    const workAll = fieldsAll
+      .map((fid) => {
+        const t = getActiveTask(fid);
+        return { fieldId: String(fid), task: t };
+      })
+      .filter((x) => x.task && x.task.status === "ACTIVE" && !!x.task.isRunning);
+
+    const totalPages = Math.max(1, Math.ceil(workAll.length / activePageSize));
+    const page = Math.min(Math.max(Number(meta.activePage ?? 0), 0), totalPages - 1);
+    meta.activePage = page;
+
+    const rActive = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("fd:activePrev")
+        .setLabel("Prev")
+        .setEmoji("⬅️")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(page <= 0),
+      new ButtonBuilder()
+        .setCustomId("fd:activePage")
+        .setLabel(`Aktivni ${page + 1}/${totalPages}`)
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true),
+      new ButtonBuilder()
+        .setCustomId("fd:activeNext")
+        .setLabel("Next")
+        .setEmoji("➡️")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(page >= totalPages - 1)
+    );
+    rows.push(rActive);
+  }
+
+  // Row: Field navigation (always visible)
+  const fieldRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("fd:fieldsPrev")
+      .setLabel("Prev")
+      .setEmoji("⬅️")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(safeFieldPage <= 0),
+    ...pageFields.map((fid) =>
+      new ButtonBuilder()
+        .setCustomId(`fd:field:${fid}`)
+        .setLabel(`Polje ${fid}`)
+        .setStyle(String(fid) === String(meta.fieldId) ? ButtonStyle.Success : ButtonStyle.Secondary)
+    ),
+    new ButtonBuilder()
+      .setCustomId("fd:fieldsNext")
+      .setLabel("Next")
+      .setEmoji("➡️")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(safeFieldPage >= totalFieldPages - 1)
+  );
+  rows.push(fieldRow);
+
+  // Row: Back + jump (only in field view) OR jump-only (list view)
+  if (hasSelection) {
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("fd:back").setLabel("Lista").setEmoji("📋").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("fd:jump").setLabel("Polje").setEmoji("🔢").setStyle(ButtonStyle.Secondary)
+      )
+    );
+  } else {
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("fd:jump").setLabel("Polje").setEmoji("🔢").setStyle(ButtonStyle.Secondary)
+      )
+    );
+  }
+
+  // Tillage choice row (only when selected field is waiting for choice)
+  if (hasSelection) {
+    const f = getField(meta.fieldId);
+    const act = getActiveTask(meta.fieldId);
+    const waitingChoice = (act && act.stageKey === "TILLAGE_CHOICE" && act.status !== "DONE") || (f && f.stage === "TILLAGE_CHOICE");
+    if (waitingChoice) {
+      rows.push(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("fd:tillage:PLOW").setLabel("Oranje").setEmoji("🚜").setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId("fd:tillage:SUBSOIL").setLabel("Podrivanje").setEmoji("🪓").setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId("fd:tillage:SKIP").setLabel("Preskoči").setEmoji("⏭️").setStyle(ButtonStyle.Secondary)
+        )
+      );
+    }
+
+    // Actions row
+    const runnableTask = getRunnableTaskForField(meta.fieldId);
+    const isChoiceTask =
+      runnableTask?.stageKey === "TILLAGE_CHOICE" || runnableTask?.stageKey === "SEED_PICK";
+    const isRunning = !!runnableTask?.isRunning;
+    const canToggleRun = !!runnableTask && !isChoiceTask;
+    const canDone = !!runnableTask && canToggleRun && runnableTask.status === "ACTIVE" && isRunning;
+
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`fd:plan:${meta.fieldId}`).setLabel("Plan sjetve").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`fd:priority:${meta.fieldId}`).setLabel("Prioritet").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(`fd:run:${meta.fieldId}`)
+          .setLabel(isRunning ? "Pauziraj" : "Pokreni")
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji(isRunning ? "⏸️" : "▶️")
+          .setDisabled(!canToggleRun),
+        new ButtonBuilder()
+          .setCustomId(`fd:done:${meta.fieldId}`)
+          .setLabel("Sljedeći")
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji("⏭️")
+          .setDisabled(!canDone)
+      )
+    );
+  }
+
+  return rows.slice(0, 5);
+}
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+async function safeEditOrSend(message, channel, payload) {
+  if (message) {
+    try {
+      return await message.edit(payload);
+    } catch (err) {
+      // Unknown Message (was deleted) -> re-send
+      if (err?.code !== 10008) throw err;
+    }
+  }
+  return await channel.send(payload);
+}
+
+// PANELS UPSERT/REFRESH
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+async function upsertPanel(panelType, channel, titleOverride = null) {
+  state.panels = state.panels ?? {};
+  const key = panelType;
+
+  // Resolve channel if not provided (e.g., deploy from admin saves channelId then calls upsertPanel(panelKey))
+  if (!channel) {
+    const metaChId = state.panels?.[key]?.channelId;
+    if (metaChId) {
+      try {
+        const fetched = await client.channels.fetch(metaChId);
+        if (fetched && fetched.isTextBased()) channel = fetched;
+      } catch {}
+    }
+  }
+
+  const existing = state.panels[key];
+  let message = null;
+
+  const page = existing?.page ?? 0;
+  const mode = existing?.mode ?? "ALL";
+
+  if (!message && (!channel || (channel.isTextBased && !channel.isTextBased()) || !channel.isTextBased)) {
+    // No channel configured and no existing message to edit
+    return null;
+  }
+
+if (existing?.channelId && existing?.messageId) {
+    try {
+      const ch = await client.channels.fetch(existing.channelId);
+      if (ch && ch.isTextBased()) {
+        if (!channel) channel = ch;
+        message = await ch.messages.fetch(existing.messageId);
+      }
+    } catch {
+      message = null;
+    }
+  }
+
+if (panelType === "workflow") {
+    const embed = renderWorkflowBoardEmbed(page, mode);
+    if (titleOverride) embed.setTitle(titleOverride);
+    const selectedTaskId = state.panels?.workflow?.selectedTaskId ?? null;
+    const components = renderWorkflowBoardComponents(page, mode, selectedTaskId);
+
+    message = await safeEditOrSend(message, channel, { embeds: [embed], components });
+
+    state.panels[key] = { ...(state.panels[key] ?? {}), channelId: channel.id, messageId: message.id, page, mode };
+    saveState();
+    return message;
+  }
+
+if (panelType === "activity") {
+    const embed = renderActivityEmbed();
+    if (titleOverride) embed.setTitle(titleOverride);
+
+    message = await safeEditOrSend(message, channel, { embeds: [embed], components: [] });
+
+    state.panels[key] = { ...(state.panels[key] ?? {}), channelId: channel.id, messageId: message.id };
+    saveState();
+    return message;
+  }
+
+if (panelType === "admin") {
+    const embed = renderAdminEmbed();
+    if (titleOverride) embed.setTitle(titleOverride);
+    const components = renderAdminComponents();
+
+    message = await safeEditOrSend(message, channel, { embeds: [embed], components });
+
+    state.panels[key] = { ...(state.panels[key] ?? {}), channelId: channel.id, messageId: message.id };
+    saveState();
+    return message;
+  }
+
+if (panelType === "details") {
+    // Field panel can be in LIST mode (no selection) or field mode.
+    const view = existing?.view ?? "LIST";
+    const fallbackField = String(getFieldList()[0] ?? 1);
+    const fieldId = (view === "LIST" || existing?.fieldId === null || existing?.fieldId === undefined)
+      ? null
+      : String(existing.fieldId ?? fallbackField);
+    const embed = buildFieldDetailsEmbed(fieldId);
+    if (titleOverride) embed.setTitle(titleOverride);
+    const components = buildFieldDetailsComponents(fieldId);
+
+    message = await safeEditOrSend(message, channel, { embeds: [embed], components });
+
+    state.panels[key] = { ...(state.panels[key] ?? {}), channelId: channel.id, messageId: message.id, fieldId, view };
+    saveState();
+    return message;
+  }
+
+  throw new Error(`Unknown panel type: ${panelType}`);
+}
+
+async function purgePanelMessages() {
+  const panels = state.panels ?? {};
+  for (const [type, meta] of Object.entries(panels)) {
+    const chId = meta?.channelId;
+    const msgId = meta?.messageId;
+    if (!chId || !msgId) continue;
+    try {
+      const ch = await client.channels.fetch(chId).catch(() => null);
+      if (!ch || !ch.isTextBased()) continue;
+      const msg = await ch.messages.fetch(msgId).catch(() => null);
+      if (msg) await msg.delete().catch(() => null);
+    } catch {}
+    // force re-post
+    state.panels[type] = { ...(state.panels[type] ?? {}), messageId: null };
+  }
+  saveState();
+}
+
+async function refreshAllPanels() {
+  const panels = state.panels ?? {};
+  for (const [type, meta] of Object.entries(panels)) {
+    try {
+      const ch = await client.channels.fetch(meta.channelId);
+      if (!ch || !ch.isTextBased()) continue;
+      await upsertPanel(type, ch);
+    } catch {}
+  }
+}
+
+async function refreshWorkflowPanel() {
+  const meta = state.panels?.workflow;
+  if (!meta?.channelId) return;
+  try {
+    const ch = await client.channels.fetch(meta.channelId);
+    if (!ch || !ch.isTextBased()) return;
+    await upsertPanel("workflow", ch);
+  } catch (e) {
+    console.error("refreshWorkflowPanel error:", e);
+  }
+}
+
+
+async function updateDetailsPanel(fieldId, fallbackChannel) {
+  // If details panel is deployed, update it. If not, auto-create in detailsChannelId or fallbackChannel.
+  const meta = state.panels?.details;
+  let channel = null;
+
+  if (meta?.channelId) {
+    channel = await client.channels.fetch(meta.channelId).catch(() => null);
+  }
+
+if (!channel) {
+    const cfgChId = state.config?.detailsChannelId;
+    if (cfgChId) channel = await client.channels.fetch(cfgChId).catch(() => null);
+  }
+
+if (!channel) channel = fallbackChannel;
+
+  if (!channel || !channel.isTextBased()) return;
+
+  // persist selection and update
+  state.panels = state.panels ?? {};
+  state.panels.details = state.panels.details ?? {};
+  state.panels.details.fieldId = String(fieldId);
+  saveState();
+
+  await upsertPanel("details", channel);
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// ONBOARDING + SECURITY EVENTS
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+function getTextChannelById(id) {
+  if (!id) return null;
+  return client.channels.fetch(id).catch(() => null);
+}
+
+function urlOrInvitePresent(content) {
+  if (!content) return false;
+  const s = String(content);
+  return /(https?:\/\/|www\.|discord\.gg\/|discord\.com\/invite\/)/i.test(s);
+}
+
+function keywordHit(content, keywords) {
+  if (!content) return null;
+  const s = String(content).toLowerCase();
+  for (const k of (keywords ?? [])) {
+    const kk = String(k).trim().toLowerCase();
+    if (!kk) continue;
+    if (s.includes(kk)) return kk;
+  }
+  return null;
+}
+
+async function maybeTimeout(member, minutes, reason) {
+  const mins = Number(minutes);
+  if (!Number.isFinite(mins) || mins <= 0) return false;
+  try {
+    if (!member.moderatable) return false;
+    await member.timeout(mins * 60 * 1000, reason ?? "Moderation");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+client.on(Events.GuildMemberAdd, async (member) => {
+  try {
+    ensureConfig();
+
+    // Anti-raid join rate tracking
+    const antiRaid = state.config?.security?.antiRaid ?? {};
+    if (antiRaid.enabled) {
+      const now = Date.now();
+      const windowMs = Math.max(5, Number(antiRaid.windowSec ?? 30)) * 1000;
+      runtime.joins.push(now);
+      runtime.joins = runtime.joins.filter((t) => now - t <= windowMs);
+
+      const maxJoins = Math.max(2, Number(antiRaid.maxJoins ?? 5));
+      if (runtime.joins.length >= maxJoins) {
+        const lockMins = Math.max(1, Number(antiRaid.lockdownMinutes ?? 10));
+        runtime.lockdownUntil = Math.max(runtime.lockdownUntil, now + lockMins * 60 * 1000);
+
+        await sendToModLog({
+          content: `⚠️ **Anti-raid**: detektiran burst joinova (${runtime.joins.length} u ${Math.round(windowMs / 1000)}s). Lockdown ${lockMins} min.`,
+        });
+      }
+    }
+
+    // Anti-alt (account age) + lockdown quarantine
+    const sec = state.config?.security ?? {};
+    const minDays = Math.max(0, Number(sec.minAccountAgeDays ?? 0));
+    const ageDays = accountAgeDays(member.user);
+    const inLockdown = Date.now() < (runtime.lockdownUntil ?? 0);
+    const shouldQuarantine = inLockdown || (minDays > 0 && ageDays < minDays);
+
+    if (shouldQuarantine && sec.quarantineRoleId) {
+      try { await member.roles.add(sec.quarantineRoleId, "Auto quarantine (anti-alt/raid)"); } catch {}
+    }
+
+    // Welcome message
+    const w = state.config?.welcome;
+    if (w?.enabled && w.channelId) {
+      const ch = await getTextChannelById(w.channelId);
+      if (ch?.isTextBased()) {
+        const embed = new EmbedBuilder()
+          .setTitle(`Dobrodošao, ${member.user.username}`)
+          .setDescription(applyVars(w.message, member, member.guild))
+          .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
+          .setColor(getEmbedColor("admin"))
+          .setTimestamp(new Date());
+        await ch.send({ embeds: [embed] }).catch(() => null);
+      }
+    }
+
+    // Verification hint (if quarantined)
+    if (shouldQuarantine && sec.verificationChannelId) {
+      const ch = await getTextChannelById(sec.verificationChannelId);
+      if (ch?.isTextBased()) {
+        await ch.send({
+          content: `👋 ${member} • račun je ${Math.floor(ageDays)} dana star${inLockdown ? " (raid mode)" : ""}. Klikni **Verify** da dobiješ pristup.`,
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder().setCustomId("verify:accept").setLabel("Verify").setStyle(ButtonStyle.Success)
+            ),
+          ],
+        }).catch(() => null);
+      }
+    }
+  } catch {}
+});
+
+client.on(Events.GuildMemberRemove, async (member) => {
+  try {
+    ensureConfig();
+    const g = state.config?.goodbye;
+    if (!g?.enabled || !g.channelId) return;
+    const ch = await getTextChannelById(g.channelId);
+    if (!ch?.isTextBased()) return;
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Doviđenja, ${member.user?.username ?? "member"}`)
+      .setDescription(applyVars(g.message, member.user ?? member, member.guild))
+      .setThumbnail((member.user ?? member)?.displayAvatarURL?.({ size: 256 }) ?? null)
+      .setColor(getEmbedColor("admin"))
+      .setTimestamp(new Date());
+
+    await ch.send({ embeds: [embed] }).catch(() => null);
+  } catch {}
+});
+
+client.on(Events.MessageCreate, async (message) => {
+  try {
+    ensureConfig();
+    if (!message.guild) return;
+    if (!message.member) return;
+    if (message.author?.bot) return;
+
+    const antiScam = state.config?.security?.antiScam ?? {};
+    if (!antiScam.enabled) return;
+
+    const minDays = Math.max(0, Number(state.config?.security?.minAccountAgeDays ?? 0));
+    const ageDays = accountAgeDays(message.author);
+
+    const unverified = !isVerified(message.member);
+    const link = urlOrInvitePresent(message.content);
+    const hit = keywordHit(message.content, antiScam.keywords);
+
+    const blockLinks = antiScam.blockLinksForUnverified && unverified && link;
+    const blockKeywords = (unverified || (minDays > 0 && ageDays < minDays)) && Boolean(hit);
+
+    if (!blockLinks && !blockKeywords) return;
+
+    // Delete message (best effort)
+    try { await message.delete(); } catch {}
+
+    const mins = Math.max(0, Number(antiScam.timeoutMinutes ?? 10));
+    const reason = blockLinks ? "Anti-scam: link od neverificiranog" : `Anti-scam: keyword "${hit}"`;
+    const timedOut = await maybeTimeout(message.member, mins, reason);
+
+    const embed = new EmbedBuilder()
+      .setTitle("🛡️ Anti-scam akcija")
+      .setDescription([
+        `**User:** ${message.author} (age ~${Math.floor(ageDays)}d)`,
+        `**Channel:** <#${message.channelId}>`,
+        `**Reason:** ${reason}`,
+        `**Action:** ${blockLinks ? "delete link" : "delete keyword"}${mins > 0 ? (timedOut ? ` + timeout ${mins}m` : " (timeout failed)") : ""}`,
+      ].join("\n"))
+      .setColor(0xED4245)
+      .setTimestamp(new Date());
+
+    await sendToModLog({ embeds: [embed] });
+  } catch {}
+});
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// SLASH COMMANDS
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+const SLASH_COMMANDS = [
+  {
+    name: "panel",
+    description: "Deploy panels to channels (choose where boards go).",
+    options: [
+      {
+        type: 1,
+        name: "deploy",
+        description: "Create/update a panel in a selected channel",
+        options: [
+          {
+            type: 3,
+            name: "type",
+            description: "Panel type",
+            required: true,
+            choices: [
+              { name: "admin", value: "admin" },
+              { name: "workflow", value: "workflow" },
+              { name: "details", value: "details" },
+              { name: "activity", value: "activity" },
+            ],
+          },
+          {
+            type: 7,
+            name: "channel",
+            description: "Target channel",
+            required: true,
+            channel_types: [ChannelType.GuildText],
+          },
+          {
+            type: 3,
+            name: "title",
+            description: "Optional title override",
+            required: false,
+          },
+        ],
+      },
+      { type: 1, name: "refresh", description: "Refresh all deployed panels" },
+    ],
+  },
+  {
+    name: "fields",
+    description: "Manage fields list",
+    options: [
+      { type: 1, name: "add", description: "Add fields (ids or ranges)", options: [{ type: 3, name: "ids", description: 'e.g. "6,7,10-15"', required: true }] },
+      { type: 1, name: "remove", description: "Remove fields", options: [{ type: 3, name: "ids", description: 'e.g. "3" or "10-15"', required: true }] },
+    ],
+  },
+  {
+    name: "config",
+    description: "Configuration",
+    options: [
+      { type: 1, name: "setlog", description: "Set log channel", options: [{ type: 7, name: "channel", description: "Log channel", required: true, channel_types: [ChannelType.GuildText] }] },
+    ],
+  },
+  {
+    name: "announce",
+    description: "Pošalji poruku u log kanal (npr. git commit poruka)",
+    options: [
+      { type: 3, name: "text", description: "Tekst poruke", required: true },
+      { type: 7, name: "channel", description: "Opcionalno: ciljani kanal", required: false, channel_types: [ChannelType.GuildText] },
+    ],
+  },
+  {
+    name: "kick",
+    description: "Kick a member",
+    options: [
+      { type: 6, name: "user", description: "User", required: true },
+      { type: 3, name: "reason", description: "Reason", required: false },
+    ],
+  },
+  {
+    name: "ban",
+    description: "Ban a member",
+    options: [
+      { type: 6, name: "user", description: "User", required: true },
+      { type: 3, name: "reason", description: "Reason", required: false },
+      { type: 4, name: "delete_days", description: "Delete message days (0-7)", required: false },
+    ],
+  },
+  {
+    name: "timeout",
+    description: "Timeout a member",
+    options: [
+      { type: 6, name: "user", description: "User", required: true },
+      { type: 4, name: "minutes", description: "Minutes", required: true },
+      { type: 3, name: "reason", description: "Reason", required: false },
+    ],
+  },
+  {
+    name: "unban",
+    description: "Unban by user id",
+    options: [
+      { type: 3, name: "user_id", description: "User ID", required: true },
+      { type: 3, name: "reason", description: "Reason", required: false },
+    ],
+  }
+
+];
+
+async function registerSlashCommands() {
+  const rest = new REST({ version: "10" }).setToken(ENV.token);
+  await rest.put(Routes.applicationGuildCommands(ENV.clientId, ENV.guildId), { body: SLASH_COMMANDS });
+  console.log("Slash commands registered.");
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// INTERACTIONS
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    // SLASH
+    if (interaction.isChatInputCommand()) {
+      if (interaction.commandName === "panel") {
+        const sub = interaction.options.getSubcommand();
+        if (sub === "deploy") {
+          const type = interaction.options.getString("type", true);
+          const channel = interaction.options.getChannel("channel", true);
+          const title = interaction.options.getString("title", false);
+
+          const guild = interaction.guild;
+          const me = guild?.members?.me ?? (await guild.members.fetchMe());
+          if (!hasChannelSendPerms(channel, me)) {
+            return interaction.reply({ ...eph(), content: `Nemam permission za slanje embeda u ${channel}. Treba: View + Send + Embed Links.` });
+          }
+
+          await interaction.deferReply(eph());
+          await upsertPanel(type, channel, title ?? null);
+          logActivity(`Panel **${type}** deployan u #${channel.name} od <@${interaction.user.id}>.`);
+          await refreshAllPanels();
+          return interaction.editReply({ content: `OK. Panel **${type}** je postavljen u ${channel}.` });
+        }
+
+if (sub === "refresh") {
+          await interaction.deferReply(eph());
+          await refreshAllPanels();
+          return interaction.editReply({ content: "OK. Svi paneli osvježeni." });
+        }
+      }
+
+if (interaction.commandName === "fields") {
+        const sub = interaction.options.getSubcommand();
+        const ids = parseIds(interaction.options.getString("ids", true));
+        if (!ids.length) return interaction.reply({ ...eph(), content: "Nema validnih ID-eva." });
+
+        if (sub === "add") {
+          const before = new Set(getFieldList());
+          for (const n of ids) before.add(n);
+          state.config.fields = [...before].sort((a, b) => a - b);
+          saveState();
+          logActivity(`<@${interaction.user.id}> dodao polja: ${ids.join(", ")}.`);
+          await refreshAllPanels();
+          await interaction.deferReply(eph());
+          await ackAndDelete(interaction, `Added: ${ids.join(", ")}`);
+          return;
+        }
+
+if (sub === "remove") {
+          const remove = new Set(ids);
+          state.config.fields = getFieldList().filter((n) => !remove.has(n));
+          saveState();
+          logActivity(`<@${interaction.user.id}> maknuo polja: ${ids.join(", ")}.`);
+          await refreshAllPanels();
+          await interaction.deferReply(eph());
+          await ackAndDelete(interaction, `Removed: ${ids.join(", ")}`);
+          return;
+        }
+      }
+
+if (interaction.commandName === "config") {
+        const sub = interaction.options.getSubcommand();
+        if (sub === "setlog") {
+          const channel = interaction.options.getChannel("channel", true);
+          state.config.logChannelId = channel.id;
+          saveState();
+          logActivity(`<@${interaction.user.id}> postavio log kanal: #${channel.name}.`);
+          await refreshAllPanels();
+          return interaction.reply({ ...eph(), content: `Log kanal postavljen na ${channel}.` });
+        }
+      }
+
+      if (interaction.commandName === "announce") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        await interaction.deferReply(eph());
+
+        const text = interaction.options.getString("text", true);
+        const chosen = interaction.options.getChannel("channel", false);
+        const targetId = chosen?.id || state.config?.logChannelId || state.config?.taskHistoryChannelId || null;
+
+        if (!targetId) return interaction.editReply({ content: "Nije postavljen log kanal, niti je zadan kanal." });
+
+        const ch = await client.channels.fetch(targetId).catch(() => null);
+        if (!ch || !ch.isTextBased()) return interaction.editReply({ content: "Kanal nije valjan." });
+
+        await ch.send({ content: `📝 **Deploy / Git:** ${text}\nBy: <@${interaction.user.id}>` }).catch(() => null);
+        return interaction.editReply({ content: "Poslano." });
+      }
+      // MODERATION COMMANDS
+      if (["kick", "ban", "timeout", "unban"].includes(interaction.commandName)) {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+
+        await interaction.deferReply(eph());
+
+        const modLogEmbedBase = (title, desc) =>
+          new EmbedBuilder().setTitle(title).setDescription(desc).setColor(0xED4245).setTimestamp(new Date());
+
+        try {
+          if (interaction.commandName === "kick") {
+            const user = interaction.options.getUser("user", true);
+            const reason = interaction.options.getString("reason", false) ?? "—";
+            const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+            if (!member) return interaction.editReply({ content: "Ne mogu naći tog člana." });
+            if (!member.kickable) return interaction.editReply({ content: "Ne mogu kickati ovog člana (permission/role hijerarhija)." });
+
+            await member.kick(reason).catch(() => null);
+            await sendToModLog({ embeds: [modLogEmbedBase("👢 Kick", `**User:** ${user}\n**By:** <@${interaction.user.id}>\n**Reason:** ${reason}`)] });
+            return interaction.editReply({ content: `Kickan: ${user}` });
+          }
+
+if (interaction.commandName === "ban") {
+            const user = interaction.options.getUser("user", true);
+            const reason = interaction.options.getString("reason", false) ?? "—";
+            const del = interaction.options.getInteger("delete_days", false) ?? 0;
+            const deleteMessageSeconds = Math.min(7, Math.max(0, del)) * 24 * 60 * 60;
+
+            await interaction.guild.members.ban(user.id, { reason, deleteMessageSeconds }).catch(() => null);
+            await sendToModLog({ embeds: [modLogEmbedBase("⛔ Ban", `**User:** <@${user.id}>\n**By:** <@${interaction.user.id}>\n**Reason:** ${reason}`)] });
+            return interaction.editReply({ content: `Banan: <@${user.id}>` });
+          }
+
+if (interaction.commandName === "timeout") {
+            const user = interaction.options.getUser("user", true);
+            const minutes = interaction.options.getInteger("minutes", true);
+            const reason = interaction.options.getString("reason", false) ?? "—";
+            const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+            if (!member) return interaction.editReply({ content: "Ne mogu naći tog člana." });
+            const ok = await maybeTimeout(member, minutes, reason);
+            await sendToModLog({ embeds: [modLogEmbedBase("⏳ Timeout", `**User:** ${user}\n**By:** <@${interaction.user.id}>\n**Minutes:** ${minutes}\n**Reason:** ${reason}\n**Result:** ${ok ? "OK" : "FAIL"}`)] });
+            return interaction.editReply({ content: ok ? `Timeout: ${user} (${minutes} min)` : "Timeout nije uspio (permission/role hijerarhija)." });
+          }
+
+if (interaction.commandName === "unban") {
+            const userId = interaction.options.getString("user_id", true);
+            const reason = interaction.options.getString("reason", false) ?? "—";
+            await interaction.guild.bans.remove(userId, reason).catch(() => null);
+            await sendToModLog({ embeds: [modLogEmbedBase("✅ Unban", `**User ID:** ${userId}\n**By:** <@${interaction.user.id}>\n**Reason:** ${reason}`)] });
+            return interaction.editReply({ content: `Unban OK: ${userId}` });
+          }
+        } catch {
+          return interaction.editReply({ content: "Greška kod moderacije." });
+        }
+      }
+
+
+
+      return;
+    }
+
+    // BUTTONS
+    if (interaction.isButton()) {
+      const id = interaction.customId;
+
+      // Admin panel buttons
+      if (id.startsWith("admin:")) {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+
+        // Backup / Restore (low-noise)
+        if (id === "admin:setup:backupNow") {
+          await interaction.deferReply(eph());
+          const ok = await sendStateBackup(interaction.user.id);
+          await interaction.editReply(ok ? "Backup spremljen." : "Backup kanal nije postavljen (ili nemam permission).");
+          return;
+        }
+
+if (id === "admin:setup:restoreLast") {
+          await interaction.deferReply(eph());
+          const res = await restoreStateFromLatestBackup(interaction.user.id);
+          if (!res.ok) {
+            const msg =
+              res.reason === "no_channel" ? "Backup/Log kanal nije postavljen." :
+              res.reason === "no_backup_found" ? "Nisam našao backup (.json attachment) u zadnjih 25 poruka." :
+              "Restore nije uspio.";
+            await interaction.editReply(msg);
+            return;
+          }
+          await refreshAllPanels();
+          await interaction.editReply("Restore uspješan. Paneli osvježeni.");
+          return;
+        }
+
+
+// Admin view navigation (grouped UI)
+if (id.startsWith("admin:view:")) {
+  const v = id.split(":")[2];
+  const view =
+    v === "setup" ? "SETUP" :
+    v === "fields" ? "FIELDS" :
+    v === "onboarding" ? "ONBOARDING" :
+    v === "moderation" ? "MODERATION" :
+    v === "security" ? "SECURITY" :
+    v === "backup" ? "BACKUP" :
+    v === "help" ? "HELP" :
+    "ROOT";
+  setAdminView(view);
+  await interaction.deferUpdate();
+  await upsertPanel("admin", interaction.channel);
+  return;
+}
+
+// Backward compatibility: old help button
+if (id === "admin:help") {
+  setAdminView("HELP");
+  await interaction.deferUpdate();
+  await upsertPanel("admin", interaction.channel);
+  return;
+}
+
+// Backward compatibility: old channel buttons (now use dropdowns)
+if (id === "admin:setlog" || id === "admin:setdetailsch" || id === "admin:sethistorych") {
+  setAdminView("CHANNELS");
+  await interaction.deferUpdate();
+  await upsertPanel("admin", interaction.channel);
+  return;
+}
+
+if (id === "admin:setup:deploy") {
+  if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+
+  state.panels = state.panels ?? {};
+  state.panels.admin = state.panels.admin ?? {};
+  const sel = state.panels.admin.panelDeploy ?? { panel: "details", channelId: state.config.detailsChannelId ?? null };
+
+  const panelKey = sel.panel;
+  const channelId = sel.channelId;
+
+  if (!channelId) {
+    await interaction.deferUpdate();
+    await upsertPanel("admin", interaction.channel);
+    await sendToLog(`Admin deploy: nije odabran kanal za panel **${panelKey}**.`);
+    return;
+  }
+
+  // Force re-send in selected channel
+  state.panels[panelKey] = state.panels[panelKey] ?? {};
+  state.panels[panelKey].channelId = channelId;
+  state.panels[panelKey].messageId = null;
+  saveState();
+
+  await interaction.deferUpdate();
+
+  // Resolve channel via fetch (cache-safe)
+  let ch = null;
+  try { ch = await client.channels.fetch(channelId); } catch {}
+
+if (ch && ch.isTextBased()) {
+    await upsertPanel(panelKey, ch);
+  } else {
+    await upsertPanel(panelKey); // will try resolve from saved channelId
+  }
+
+  await upsertPanel("admin", interaction.channel);
+  return;
+}
+
+if (id === "admin:panels:deploy") {
+          if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+
+          state.panels = state.panels ?? {};
+          state.panels.admin = state.panels.admin ?? {};
+          const sel = state.panels.admin.panelDeploy ?? { panel: "details", channelId: state.config.detailsChannelId ?? null };
+
+          const panelKey = sel.panel;
+          const channelId = sel.channelId;
+
+          if (!channelId) {
+            await interaction.deferUpdate();
+            await upsertPanel("admin", interaction.channel);
+            await sendToLog(`Admin deploy: nije odabran kanal za panel **${panelKey}**.`);
+            return;
+          }
+
+          state.panels[panelKey] = state.panels[panelKey] ?? {};
+          state.panels[panelKey].channelId = channelId;
+          state.panels[panelKey].messageId = null; // force re-send in selected channel
+          saveState();
+
+          await interaction.deferUpdate();
+          await upsertPanel(panelKey);
+          await upsertPanel("admin", interaction.channel);
+          return;
+        }
+
+if (id === "admin:refresh") {
+          await interaction.deferUpdate();
+          await refreshAllPanels();
+          return;
+        }
+
+
+        // ONBOARDING toggles / modals
+        if (id === "admin:onboarding:welcome:toggle") {
+          state.config.welcome.enabled = !state.config.welcome.enabled;
+          saveState();
+          await interaction.deferUpdate();
+          await upsertPanel("admin", interaction.channel);
+          return;
+        }
+
+if (id === "admin:onboarding:goodbye:toggle") {
+          state.config.goodbye.enabled = !state.config.goodbye.enabled;
+          saveState();
+          await interaction.deferUpdate();
+          await upsertPanel("admin", interaction.channel);
+          return;
+        }
+
+if (id === "admin:onboarding:welcome:message") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:welcomeMessage").setTitle("Welcome tekst");
+          const input = new TextInputBuilder()
+            .setCustomId("msg")
+            .setLabel("Tekst (vars: {user} {server})")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+            .setMaxLength(1200)
+            .setValue(String(state.config.welcome.message ?? "").slice(0, 1200));
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+if (id === "admin:onboarding:goodbye:message") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:goodbyeMessage").setTitle("Goodbye tekst");
+          const input = new TextInputBuilder()
+            .setCustomId("msg")
+            .setLabel("Tekst (vars: {username} {server})")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+            .setMaxLength(1200)
+            .setValue(String(state.config.goodbye.message ?? "").slice(0, 1200));
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+if (id === "admin:onboarding:roles") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:roles").setTitle("Role postavke");
+          const q = new TextInputBuilder().setCustomId("quarantine").setLabel("Quarantine role ID").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(25).setValue(String(state.config.security.quarantineRoleId ?? ""));
+          const m = new TextInputBuilder().setCustomId("member").setLabel("Member role ID (verified)").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(25).setValue(String(state.config.security.memberRoleId ?? ""));
+          modal.addComponents(new ActionRowBuilder().addComponents(q), new ActionRowBuilder().addComponents(m));
+          return interaction.showModal(modal);
+        }
+
+if (id === "admin:onboarding:minage") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:minage").setTitle("Min account age");
+          const input = new TextInputBuilder()
+            .setCustomId("days")
+            .setLabel("Minimalno dana star account (0=off)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(4)
+            .setValue(String(state.config.security.minAccountAgeDays ?? 0));
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+        // SECURITY toggles / modals
+        if (id === "admin:security:antiscam:toggle") {
+          state.config.security.antiScam.enabled = !state.config.security.antiScam.enabled;
+          saveState();
+          await interaction.deferUpdate();
+          await upsertPanel("admin", interaction.channel);
+          return;
+        }
+
+if (id === "admin:security:antiscam:links") {
+          state.config.security.antiScam.blockLinksForUnverified = !state.config.security.antiScam.blockLinksForUnverified;
+          saveState();
+          await interaction.deferUpdate();
+          await upsertPanel("admin", interaction.channel);
+          return;
+        }
+
+if (id === "admin:security:antiscam:timeout") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:antiscamTimeout").setTitle("Anti-scam timeout");
+          const input = new TextInputBuilder()
+            .setCustomId("minutes")
+            .setLabel("Timeout minutes")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(4)
+            .setValue(String(state.config.security.antiScam.timeoutMinutes ?? 10));
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+if (id === "admin:security:antiscam:keywords") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:antiscamKeywords").setTitle("Anti-scam keywords");
+          const input = new TextInputBuilder()
+            .setCustomId("keywords")
+            .setLabel("Keywords (comma separated)")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+            .setMaxLength(1200)
+            .setValue(String((state.config.security.antiScam.keywords ?? []).join(", ")).slice(0, 1200));
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+if (id === "admin:security:antiraid:toggle") {
+          state.config.security.antiRaid.enabled = !state.config.security.antiRaid.enabled;
+          saveState();
+          await interaction.deferUpdate();
+          await upsertPanel("admin", interaction.channel);
+          return;
+        }
+
+if (id === "admin:security:antiraid:threshold") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:antiraidThreshold").setTitle("Anti-raid prag");
+          const w = new TextInputBuilder().setCustomId("windowSec").setLabel("Window seconds").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(4).setValue(String(state.config.security.antiRaid.windowSec ?? 30));
+          const m = new TextInputBuilder().setCustomId("maxJoins").setLabel("Max joins u window").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(4).setValue(String(state.config.security.antiRaid.maxJoins ?? 5));
+          modal.addComponents(new ActionRowBuilder().addComponents(w), new ActionRowBuilder().addComponents(m));
+          return interaction.showModal(modal);
+        }
+
+if (id === "admin:security:antiraid:lockdown") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:antiraidLockdown").setTitle("Anti-raid lockdown");
+          const input = new TextInputBuilder()
+            .setCustomId("minutes")
+            .setLabel("Lockdown minutes")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(4)
+            .setValue(String(state.config.security.antiRaid.lockdownMinutes ?? 10));
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+if (id === "admin:paneltitle") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:paneltitle").setTitle("Naziv panela polja");
+          const input = new TextInputBuilder()
+            .setCustomId("title")
+            .setLabel("Naslov (prikazuje se na panelu polja)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(60)
+            .setValue(String(state.config?.fieldsPanelTitle ?? "FarmBudy – Polja").slice(0, 60));
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+if (id === "admin:help") {
+          const msg = [
+            "**Admin Panel – tipke**",
+            "- Deploy Admin/Workflow/Details/Activity: otvara modal, upišeš #channel ili channel ID",
+            "- Set Log: kanal za DONE/cycle poruke",
+            "- Set Details Ch: kanal u koji se auto-updatea Field Details (ako ne deployaš ručno)",
+            "- Add/Remove Fields: upišeš `6,7,10-15`",
+            "",
+            "Tip: Deployaj **Details** u admin kanal i pinaj ga. Klik polja na boardu samo osvježava taj jedan message.",
+          ].join("\n");
+          return interaction.reply({ ...eph(), content: msg });
+        }
+
+if (id === "admin:colors") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:colors").setTitle("Boje embeda");
+
+          const cAdmin = new TextInputBuilder()
+            .setCustomId("admin")
+            .setLabel("Admin panel (HEX, npr #5865F2)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(8)
+            .setValue(`#${getEmbedColor("admin").toString(16).padStart(6, "0")}`);
+
+          const cWorkflow = new TextInputBuilder()
+            .setCustomId("workflow")
+            .setLabel("Workflow board (HEX)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(8)
+            .setValue(`#${getEmbedColor("workflow").toString(16).padStart(6, "0")}`);
+
+          const cField = new TextInputBuilder()
+            .setCustomId("fieldDetails")
+            .setLabel("Field Details (HEX)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(8)
+            .setValue(`#${getEmbedColor("fieldDetails").toString(16).padStart(6, "0")}`);
+
+          const cActivity = new TextInputBuilder()
+            .setCustomId("activity")
+            .setLabel("Activity (HEX)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(8)
+            .setValue(`#${getEmbedColor("activity").toString(16).padStart(6, "0")}`);
+
+          modal.addComponents(
+            new ActionRowBuilder().addComponents(cAdmin),
+            new ActionRowBuilder().addComponents(cWorkflow),
+            new ActionRowBuilder().addComponents(cField),
+            new ActionRowBuilder().addComponents(cActivity)
+          );
+          return interaction.showModal(modal);
+        }
+
+if (id === "admin:setlog") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:setlog").setTitle("Set Log Channel");
+          const input = new TextInputBuilder()
+            .setCustomId("channel")
+            .setLabel("Kanal (#mention ili ID)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(30);
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+if (id === "admin:setdetailsch") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:setdetailsch").setTitle("Set Details Default Channel");
+          const input = new TextInputBuilder()
+            .setCustomId("channel")
+            .setLabel("Kanal (#mention ili ID)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(30);
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+if (id === "admin:sethistorych") {
+          const modal = new ModalBuilder().setCustomId("admin:modal:sethistorych").setTitle("Set Task History Channel");
+          const input = new TextInputBuilder()
+            .setCustomId("channel")
+            .setLabel("Kanal (#mention ili ID)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(30);
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+if (id.startsWith("admin:deploy:")) {
+          const type = id.split(":")[2];
+          const modal = new ModalBuilder().setCustomId(`admin:modal:deploy:${type}`).setTitle(`Deploy ${type}`);
+          const input = new TextInputBuilder()
+            .setCustomId("channel")
+            .setLabel("Kanal (#mention ili ID)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(30);
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+if (id === "admin:fields:add" || id === "admin:fields:remove") {
+          const action = id.endsWith("add") ? "add" : "remove";
+          const modal = new ModalBuilder().setCustomId(`admin:modal:fields:${action}`).setTitle(`Fields ${action}`);
+          const input = new TextInputBuilder()
+            .setCustomId("ids")
+            .setLabel('IDs (npr. "6,7,10-15")')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(60);
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+        return;
+      }
+
+
+      // Verification button
+      if (id === "verify:accept") {
+        await interaction.deferReply(eph());
+        ensureConfig();
+        const sec = state.config?.security ?? {};
+        const memberRoleId = sec.memberRoleId;
+        const quarantineRoleId = sec.quarantineRoleId;
+
+        try {
+          if (quarantineRoleId) await interaction.member.roles.remove(quarantineRoleId, "Verified").catch(() => null);
+          if (memberRoleId) await interaction.member.roles.add(memberRoleId, "Verified").catch(() => null);
+        } catch {}
+
+        return interaction.editReply({ content: "Verify OK." });
+      }
+
+      // Workflow board nav/mode
+      // Workflow: finish selected task (basic users allowed)
+      if (id.startsWith("wf:done:")) {
+        if (!canBasic(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš ovlasti." });
+        const taskId = id.split(":")[2];
+        if (!taskId || taskId === "none") return interaction.deferUpdate();
+        const res = completeTaskById(taskId, interaction.user.id);
+        if (!res.ok) {
+          const msg = res.reason === "not_found" ? "Zadatak ne postoji." :
+            res.reason === "already_done" ? "Zadatak je već završen." :
+            res.reason === "choice_required" ? "Za ovaj zadatak treba odabir (ne može se završiti ovdje)." :
+            "Ne mogu završiti zadatak.";
+          return interaction.reply({ ...eph(), content: msg });
+        }
+        const t = res.task;
+        const nextK = nextStageKey(t.stageKey);
+        const nextTxt = nextK ? `${STAGES[nextK]?.emoji ?? "➡️"} ${STAGES[nextK]?.label ?? nextK}` : "—";
+        await sendToTaskHistory({
+          content: [
+            `✅ Polje **${t.fieldId}** • **${formatTaskId(t.id)}** • ${STAGES[t.stageKey]?.emoji ?? ""} ${t.title ?? STAGES[t.stageKey]?.label ?? t.stageKey}`,
+            `Završio: <@${interaction.user.id}> • Prioritet: **${String(t.priority || "LOW").toUpperCase()}**`,
+            `Sljedeće: **${nextTxt}**${(nextK === "TILLAGE_CHOICE" || nextK === "SEED_PICK") ? " (odabir potreban)" : ""}`,
+          ].join("\n"),
+        });
+        logActivity(`<@${interaction.user.id}> završio **${formatTaskId(t.id)}** (workflow).`);
+        state.panels = state.panels ?? {};
+        state.panels.workflow = state.panels.workflow ?? {};
+        state.panels.workflow.selectedTaskId = (state.panels.workflow.selectedTaskId === String(taskId)) ? null : state.panels.workflow.selectedTaskId;
+        saveState();
+        await interaction.deferUpdate();
+        await refreshAllPanels();
+        return;
+      }
+
+      if (id.startsWith("wf:board:")) {
+        const parts = id.split(":");
+        const action = parts[2];
+        const currentPage = Number(parts[3] ?? 0);
+        const mode = parts[4] ?? "ALL";
+
+        if (action === "prev" || action === "next") {
+          const delta = action === "prev" ? -1 : 1;
+          const newPage = Math.max(0, Math.min(boardPages(mode) - 1, currentPage + delta));
+          state.panels.workflow = state.panels.workflow ?? {};
+          state.panels.workflow.page = newPage;
+          state.panels.workflow.mode = mode;
+          saveState();
+          await interaction.deferUpdate();
+          await refreshAllPanels();
+          return;
+        }
+
+if (action === "mode") {
+      const newMode = parts[3] ?? "ALL";
+      const requestedPage = Number(parts[4] ?? 0);
+      const maxPage = boardPages(newMode) - 1;
+      const page = Math.max(0, Math.min(maxPage, requestedPage));
+
+      state.panels.workflow = state.panels.workflow ?? {};
+      state.panels.workflow.mode = String(newMode || "ALL").toUpperCase();
+      state.panels.workflow.page = page;
+      saveState();
+          await interaction.deferUpdate();
+          await refreshAllPanels();
+          return;
+        }
+      }
+
+      // Clicking a field: update the Field Details panel (no message spam)
+      if (id.startsWith("wf:field:") && id.split(":").length === 3) {
+        const fieldId = id.split(":")[2];
+
+        // Ensure task context for better info
+        ensureNextForField(fieldId, interaction.user.id);
+        activateTask(getActiveTask(fieldId), interaction.user.id);
+
+        await interaction.deferUpdate();
+        await updateDetailsPanel(fieldId, interaction.channel);
+        return;
+      }
+
+      // Field Details actions
+      
+      if (id.startsWith("fd:")) {
+        // Unified Fields Panel (workflow + details in one message)
+        // Custom IDs:
+        //  - fd:pick:<fieldId>
+        //  - fd:page:prev | fd:page:next
+        //  - fd:filter:<ALL|ACTIVE|DONE|WAITING|URGENT>
+        //  - fd:jump (modal)
+        //  - fd:plan | fd:back (toggle crop picker view)
+        //  - fd:crop:<fieldId>:<CROPKEY|CLEAR>
+        //  - fd:priority | fd:notes | fd:done
+        //  - fd:tillage:<PLOW|SUBSOIL|SKIP>
+
+        // No-op placeholders for layout padding
+        if (id.startsWith("fd:noop:")) {
+          return interaction.deferUpdate();
+        }
+
+        // Ensure details meta exists
+        state.panels = state.panels ?? {};
+        state.panels.details = state.panels.details ?? {};
+        const meta = state.panels.details;
+
+        const fieldListAll = getFieldList();
+
+        // Allow "no selection" (list view). Do NOT auto-select a field.
+        if (!("fieldId" in meta)) meta.fieldId = null;
+
+        if (!Number.isFinite(Number(meta.page))) meta.page = 0;
+        if (!Number.isFinite(Number(meta.activePage))) meta.activePage = 0;
+
+        if (!meta.view) meta.view = meta.fieldId ? "MAIN" : "LIST";
+
+        const renderInPlace = async (fieldIdToRender) => {
+          if (fieldIdToRender !== null && fieldIdToRender !== undefined) {
+            ensureNextForField(fieldIdToRender, interaction.user?.id ?? null);
+          }
+          const embed = buildFieldDetailsEmbed(fieldIdToRender);
+          const components = buildFieldDetailsComponents(fieldIdToRender);
+          saveState();
+
+          // More robust than interaction.update() alone (prevents "This interaction failed" in slow/error cases)
+          try {
+            if (interaction.deferred || interaction.replied) {
+              return await interaction.editReply({ embeds: [embed], components });
+            }
+            return await interaction.update({ embeds: [embed], components });
+          } catch (err) {
+            try {
+              if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
+              return await interaction.editReply({ embeds: [embed], components });
+            } catch {
+              // swallow to avoid user-facing spam
+              return null;
+            }
+          }
+        };
+        // Active list paging (list view)
+        if (id === "fd:activePrev") {
+          meta.activePage = Math.max(Number(meta.activePage ?? 0) - 1, 0);
+          meta.fieldId = null;
+          meta.view = "LIST";
+          return renderInPlace(null);
+        }
+
+if (id === "fd:activeNext") {
+          meta.activePage = Number(meta.activePage ?? 0) + 1;
+          meta.fieldId = null;
+          meta.view = "LIST";
+          return renderInPlace(null);
+        }
+
+        // Fields paging (buttons row)
+        if (id === "fd:fieldsPrev") {
+          meta.page = Math.max(Number(meta.page ?? 0) - 1, 0);
+          return renderInPlace(meta.fieldId ?? null);
+        }
+
+if (id === "fd:fieldsNext") {
+          meta.page = Number(meta.page ?? 0) + 1;
+          return renderInPlace(meta.fieldId ?? null);
+        }
+
+        // Select a field from buttons
+        if (id.startsWith("fd:field:")) {
+          const fid = id.split(":")[2];
+          if (fid) {
+            meta.fieldId = String(fid);
+            meta.view = "MAIN";
+
+            // Ensure the field page matches the selection
+            const idx = fieldListAll.findIndex((x) => String(x) === String(fid));
+            if (idx >= 0) meta.page = Math.floor(idx / 3);
+          }
+          return renderInPlace(meta.fieldId);
+        }
+
+        // Back to active list (deselect)
+        if (id === "fd:back") {
+          meta.fieldId = null;
+          meta.view = "LIST";
+          return renderInPlace(null);
+        }
+
+
+
+        const filteredFields = (() => {
+          const filter = meta.filter ?? "ALL";
+          return getFieldList()
+            .filter((fid) => {
+            const f = getField(fid);
+            const tasks = listTasksForField(fid);
+            const active = getActiveTask(fid);
+            const hasActive = !!active && active.status === "ACTIVE";
+            const hasOpen = tasks.some((t) => t.status === "OPEN");
+            const waiting =
+              f.stage === "TILLAGE_CHOICE" ||
+              f.stage === "SEED_PICK" ||
+              (active && (active.stageKey === "TILLAGE_CHOICE" || active.stageKey === "SEED_PICK"));
+            const urgent = active && (active.priority ?? "MED") === "HIGH" && active.status === "ACTIVE";
+
+            if (filter === "ACTIVE") return hasActive;
+            if (filter === "DONE") return !hasActive && !hasOpen;
+            if (filter === "WAITING") return waiting;
+              if (filter === "URGENT") return urgent;
+              return true;
+            })
+            .sort((a, b) => {
+              if (filter === "ACTIVE" || filter === "URGENT") {
+                const aa = getActiveTask(a);
+                const bb = getActiveTask(b);
+                const ar = priorityRank(aa?.priority ?? "MED");
+                const br = priorityRank(bb?.priority ?? "MED");
+                if (ar !== br) return ar - br;
+                return Number(a) - Number(b);
+              }
+
+if (filter === "WAITING") {
+                const fa = getField(a);
+                const fb = getField(b);
+                const ra = fa.stage === "TILLAGE_CHOICE" ? 0 : fa.stage === "SEED_PICK" ? 1 : 2;
+                const rb = fb.stage === "TILLAGE_CHOICE" ? 0 : fb.stage === "SEED_PICK" ? 1 : 2;
+                if (ra !== rb) return ra - rb;
+                return Number(a) - Number(b);
+              }
+              return Number(a) - Number(b);
+            });
+        })();
+
+        const clampPage = () => {
+          const pageSize = 3;
+          const totalPages = Math.max(1, Math.ceil(filteredFields.length / pageSize));
+          meta.page = Math.max(0, Math.min(Number(meta.page ?? 0) || 0, totalPages - 1));
+        };
+
+        const ensureSelectionVisible = () => {
+          const pageSize = 3;
+          const idx = filteredFields.findIndex((x) => String(x) === String(meta.fieldId));
+          if (idx >= 0) {
+            meta.page = Math.floor(idx / pageSize);
+          } else {
+            meta.fieldId = String(filteredFields[0] ?? getFieldList()[0] ?? 1);
+            meta.page = 0;
+          }
+        };
+
+        // NAV: prev/next page
+        if (id === "fd:page:prev" || id === "fd:page:next") {
+          const delta = id === "fd:page:prev" ? -1 : 1;
+          meta.page = (Number(meta.page ?? 0) || 0) + delta;
+          clampPage();
+          meta.view = "MAIN"; // keep navigation predictable
+          return renderInPlace(meta.fieldId);
+        }
+
+
+// Pager: tasks view (selected field)
+if (id === "fd:taskspage:prev" || id === "fd:taskspage:next") {
+  const delta = id === "fd:taskspage:prev" ? -1 : 1;
+  const count = listTasksForField(meta.fieldId).filter((t) => t.status === "ACTIVE" || t.status === "OPEN").length;
+  const total = Math.max(1, Math.ceil(count / 10));
+  meta.tasksPage = Math.max(0, Math.min((Number(meta.tasksPage ?? 0) || 0) + delta, total - 1));
+  meta.view = "TASKS";
+  return renderInPlace(meta.fieldId);
+}
+
+        // Filter
+        if (id.startsWith("fd:filter:")) {
+          const mode = id.split(":")[2] ?? "ALL";
+          meta.filter = ["ALL", "ACTIVE", "DONE", "WAITING", "URGENT"].includes(mode) ? mode : "ALL";
+          meta.view = "MAIN";
+          meta.page = 0;
+          meta.activePage = 0;
+          meta.tasksPage = 0;
+          ensureSelectionVisible();
+          return renderInPlace(meta.fieldId);
+        }
+
+        // Pick a field
+        if (id.startsWith("fd:pick:")) {
+          const fid = id.split(":")[2];
+          if (fid) meta.fieldId = String(fid);
+          meta.view = "MAIN";
+          meta.tasksPage = 0;
+          ensureSelectionVisible();
+          return renderInPlace(meta.fieldId);
+        }
+
+        // Jump to field (modal)
+        if (id === "fd:jump") {
+          const modal = new ModalBuilder().setCustomId("fd:modal:jump").setTitle("Odabir polja");
+          const input = new TextInputBuilder()
+            .setCustomId("fieldNumber")
+            .setLabel("Upiši broj polja")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(6)
+            .setValue(String(meta.fieldId ?? ""));
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          return interaction.showModal(modal);
+        }
+
+// Plan seeding view toggle
+if (id.startsWith("fd:plan:")) {
+  const fid = id.split(":")[2];
+  if (fid) meta.fieldId = String(fid);
+  meta.view = "PLAN_PICK";
+  ensureSelectionVisible();
+  return renderInPlace(meta.fieldId);
+}
+
+if (id.startsWith("fd:back:")) {
+  const fid = id.split(":")[2];
+  if (fid) meta.fieldId = String(fid);
+  meta.view = "MAIN";
+  ensureSelectionVisible();
+  return renderInPlace(meta.fieldId);
+}
+
+        // Crop selection
+        if (id.startsWith("fd:crop:")) {
+          const parts = id.split(":");
+          const fid = parts[2];
+          const pick = parts[3];
+
+          // safety: update selection
+          if (fid) meta.fieldId = String(fid);
+
+          if (pick === "CLEAR") {
+            const f = getField(meta.fieldId);
+            f.plannedCrop = null;
+            f.updatedAt = nowISO();
+            saveState();
+            meta.view = "MAIN";
+            // if we're currently waiting for SEED_PICK, keep it waiting
+            return renderInPlace(meta.fieldId);
+          }
+
+          const crop = CROPS.find((c) => c.key === pick);
+          if (crop) {
+            const f = getField(meta.fieldId);
+            f.plannedCrop = crop.key;
+            f.updatedAt = nowISO();
+            saveState();
+
+            // if we're at SEED_PICK stage, this will immediately create SEED task
+            ensureNextForField(meta.fieldId, interaction.user?.id ?? null);
+
+            meta.view = "MAIN";
+            return renderInPlace(meta.fieldId);
+          }
+
+          return interaction.deferUpdate();
+        }
+
+        // Priority cycle
+        if (id.startsWith("fd:priority:")) {
+          const fid = id.split(":")[2];
+          if (fid) meta.fieldId = String(fid);
+
+          const active = getActiveTask(meta.fieldId);
+          if (active) {
+            const next = cyclePriority(active);
+            saveState();
+            logActivity(`<@${interaction.user.id}> promijenio prioritet **${formatTaskId(active.id)}** -> **${next}** (polje ${meta.fieldId}).`);
+          }
+          return renderInPlace(meta.fieldId);
+        }
+
+        // Tasks view toggle (task review)
+        if (id.startsWith("fd:tasks:") && id.split(":").length === 3) {
+          const fid = id.split(":")[2];
+          if (fid) meta.fieldId = String(fid);
+
+          meta.view = "TASKS";
+          meta.tasksPage = 0;
+          return renderInPlace(meta.fieldId);
+        }
+
+if (id.startsWith("fd:tasks:back:")) {
+          const fid = id.split(":")[3];
+          if (fid) meta.fieldId = String(fid);
+
+          meta.view = "MAIN";
+          return renderInPlace(meta.fieldId);
+        }
+
+
+        // Run/Pause toggle
+        if (id.startsWith("fd:run:")) {
+          const fid = id.split(":")[2];
+          if (fid) meta.fieldId = String(fid);
+
+          ensureNextForField(meta.fieldId);
+
+          const runnable = getRunnableTaskForField(meta.fieldId);
+          if (!runnable) return interaction.deferUpdate();
+
+          if (runnable.stageKey === "TILLAGE_CHOICE" || runnable.stageKey === "SEED_PICK") {
+            return interaction.deferUpdate();
+          }
+
+if (!runnable.isRunning) {
+            activateTask(runnable, interaction.user?.id ?? null);
+            const f = getField(meta.fieldId);
+            if (f) f.activeTaskId = runnable.id;
+            runnable.isRunning = true;
+          } else {
+            // Pause: remove from "active tasks" list by marking it as not running.
+            // Keep it resumable by setting status back to OPEN.
+            runnable.isRunning = false;
+            if (runnable.status === "ACTIVE") runnable.status = "OPEN";
+          }
+
+          saveState();
+          await refreshWorkflowPanel();
+          meta.view = "MAIN";
+          return renderInPlace(meta.fieldId);
+        }
+
+
+        // Notes modal
+        if (id === "fd:notes") {
+          const active = getActiveTask(meta.fieldId);
+          if (!active) return interaction.deferUpdate();
+
+          const modal = new ModalBuilder()
+            .setCustomId(`fd:modal:notes:${meta.fieldId}:${active.id}`)
+            .setTitle(`Bilješka – Polje ${meta.fieldId}`);
+
+          const notesInput = new TextInputBuilder()
+            .setCustomId("notes")
+            .setLabel("Napomena")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(false)
+            .setMaxLength(400)
+            .setValue((active.notes ?? "").slice(0, 400));
+
+          modal.addComponents(new ActionRowBuilder().addComponents(notesInput));
+          return interaction.showModal(modal);
+        }
+
+        // Done
+        if (id.startsWith("fd:done:")) {
+          const fid = id.split(":")[2];
+          if (fid) meta.fieldId = String(fid);
+
+          ensureNextForField(meta.fieldId);
+
+          const active = getActiveTask(meta.fieldId) ?? getRunnableTaskForField(meta.fieldId);
+          if (!active || (active.status !== "ACTIVE" && active.status !== "OPEN")) {
+            return interaction.deferUpdate();
+          }
+
+if (!active.isRunning) {
+            return interaction.deferUpdate();
+          }
+
+if (active.stageKey === "TILLAGE_CHOICE" || active.stageKey === "SEED_PICK") {
+            return interaction.deferUpdate();
+          }
+
+          active.isRunning = false;
+          active.status = "DONE";
+          active.completedAt = nowISO();
+          saveState();
+          await refreshWorkflowPanel();
+
+          logActivity(`<@${interaction.user.id}> završio **${formatTaskId(active.id)}** (polje ${meta.fieldId}).`);
+          const durMs = active.startedAt ? (Date.parse(active.completedAt) - Date.parse(active.startedAt)) : null;
+          const durTxt = durMs !== null && Number.isFinite(durMs) ? formatDurationMs(durMs) : null;
+          const nextK = nextStageKey(active.stageKey);
+          const nextTxt = nextK ? `${STAGES[nextK]?.emoji ?? "➡️"} ${STAGES[nextK]?.label ?? nextK}` : "—";
+
+          pushEvent({
+            ts: Date.now(),
+            type: "DONE",
+            actorUserId: interaction.user.id,
+            fieldId: String(meta.fieldId),
+            taskId: active.id,
+            stageKey: active.stageKey,
+            priority: active.priority ?? "LOW",
+            durationMs: durMs ?? null,
+          });
+
+          await sendToTaskHistory({
+            content: [
+              `✅ Polje **${meta.fieldId}** • **${formatTaskId(active.id)}** • ${STAGES[active.stageKey]?.emoji ?? ""} ${active.title ?? STAGES[active.stageKey]?.label ?? active.stageKey}`,
+              `${durTxt ? `⏱ ${durTxt} • ` : ""}Završio: <@${interaction.user.id}> • Prioritet: **${String(active.priority || "LOW").toUpperCase()}**`,
+              `Sljedeće: **${nextTxt}**${(nextK === "TILLAGE_CHOICE" || nextK === "SEED_PICK") ? " (odabir potreban)" : ""}`,
+            ].join("\n"),
+          });
+advanceAfterDone(meta.fieldId, active);
+
+          const nextTask = ensureNextForField(meta.fieldId, interaction.user?.id ?? null);
+
+          // If the next step is a user choice, keep the field selected and show it immediately.
+          if (nextTask && (nextTask.stageKey === "TILLAGE_CHOICE" || nextTask.stageKey === "SEED_PICK")) {
+            meta.view = nextTask.stageKey === "SEED_PICK" ? "PLAN_PICK" : "MAIN";
+            ensureSelectionVisible();
+            return renderInPlace(meta.fieldId);
+          }
+
+          // Otherwise go back to the work list.
+          meta.fieldId = null;
+          meta.view = "LIST";
+          return renderInPlace(null);
+
+        }
+
+
+        // Tillage choice
+        if (id.startsWith("fd:tillage:")) {
+          const choice = id.split(":")[2];
+
+          // Close choice task if present
+          const act = getActiveTask(meta.fieldId);
+          if (act && act.stageKey === "TILLAGE_CHOICE" && act.status !== "DONE") {
+            act.status = "DONE";
+            act.completedAt = nowISO();
+            saveState();
+          }
+
+if (choice === "PLOW") setFieldStage(meta.fieldId, "PLOW");
+          else if (choice === "SUBSOIL") setFieldStage(meta.fieldId, "SUBSOIL");
+          else setFieldStage(meta.fieldId, "CULTIVATE"); // SKIP -> go to cultivate
+
+          const nextTask = ensureNextForField(meta.fieldId, interaction.user?.id ?? null);
+          activateTask(nextTask, interaction.user?.id ?? null);
+
+          meta.view = "MAIN";
+          return renderInPlace(meta.fieldId);
+        }
+
+        return interaction.deferUpdate();
+      }
+    }
+
+    // SELECT MENUS (planned seeding)
+    
+// CHANNEL SELECT MENUS (Admin panel)
+if (interaction.isChannelSelectMenu()) {
+  const id = interaction.customId;
+  if (id === "admin:backup:channel") {
+    if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "You do not have admin permissions." });
+    const channelId = interaction.values?.[0];
+    if (!channelId) { await interaction.deferUpdate(); return; }
+    state.config.backupChannelId = channelId;
+    saveState();
+    logActivity(`<@${interaction.user.id}> set backup channel: <#${channelId}>.`);
+    await interaction.deferUpdate();
+    await refreshAllPanels();
+    return;
+  }
+
+
+  if (id.startsWith("admin:setup:")) {
+  if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+
+  const channelId = interaction.values?.[0];
+  if (!channelId) {
+    await interaction.deferUpdate();
+    return;
+  }
+
+  // Deploy target channel selection
+  if (id === "admin:setup:selectchannel") {
+    state.panels = state.panels ?? {};
+    state.panels.admin = state.panels.admin ?? {};
+    state.panels.admin.panelDeploy = state.panels.admin.panelDeploy ?? { panel: "details", channelId: state.config.detailsChannelId ?? null };
+    state.panels.admin.panelDeploy.channelId = channelId;
+    saveState();
+    await interaction.deferUpdate();
+    await upsertPanel("admin", interaction.channel);
+    return;
+  }
+
+  // Channel settings
+  if (id === "admin:setup:ch:log") {
+    state.config.logChannelId = channelId;
+    saveState();
+    logActivity(`<@${interaction.user.id}> postavio log kanal: <#${channelId}>.`);
+  } else if (id === "admin:setup:ch:detailsDefault") {
+    state.config.detailsChannelId = channelId;
+    saveState();
+    logActivity(`<@${interaction.user.id}> postavio default kanal panela polja: <#${channelId}>.`);
+  } else if (id === "admin:setup:ch:history") {
+    state.config.taskHistoryChannelId = channelId;
+    saveState();
+    logActivity(`<@${interaction.user.id}> postavio task history kanal: <#${channelId}>.`);
+  } else if (id === "admin:setup:ch:backup") {
+    state.config.backupChannelId = channelId;
+    saveState();
+    logActivity(`<@${interaction.user.id}> postavio backup kanal: <#${channelId}>.`);
+  }
+
+  await interaction.deferUpdate();
+  await refreshAllPanels();
+  return;
+}
+if (id.startsWith("admin:ch:")) {
+    if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+
+    const channelId = interaction.values?.[0];
+    if (!channelId) {
+      await interaction.deferUpdate();
+      return;
+    }
+
+if (id === "admin:ch:log") {
+      state.config.logChannelId = channelId;
+      saveState();
+      logActivity(`<@${interaction.user.id}> postavio log kanal: <#${channelId}>.`);
+    } else if (id === "admin:ch:detailsDefault") {
+      state.config.detailsChannelId = channelId;
+      saveState();
+      logActivity(`<@${interaction.user.id}> postavio default kanal panela polja: <#${channelId}>.`);
+    } else if (id === "admin:ch:history") {
+      state.config.taskHistoryChannelId = channelId;
+      saveState();
+      logActivity(`<@${interaction.user.id}> postavio task history kanal: <#${channelId}>.`);
+    } else if (id === "admin:ch:backup") {
+      state.config.backupChannelId = channelId;
+      saveState();
+      logActivity(`<@${interaction.user.id}> postavio backup kanal: <#${channelId}>.`);
+    }
+
+    await interaction.deferUpdate();
+    await refreshAllPanels();
+    await upsertPanel("admin", interaction.channel);
+    return;
+  }
+
+if (id === "admin:panels:selectchannel") {
+    if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+
+    const channelId = interaction.values?.[0];
+    if (!channelId) {
+      await interaction.deferUpdate();
+      return;
+    }
+
+    state.panels = state.panels ?? {};
+    state.panels.admin = state.panels.admin ?? {};
+    state.panels.admin.panelDeploy = state.panels.admin.panelDeploy ?? { panel: "details", channelId: null };
+    state.panels.admin.panelDeploy.channelId = channelId;
+    saveState();
+
+    await interaction.deferUpdate();
+    await upsertPanel("admin", interaction.channel);
+    return;
+  }
+
+  // Moderation / Onboarding channel selects
+  if (id === "admin:moderation:modlog") {
+    if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+    const channelId = interaction.values?.[0];
+    if (!channelId) { await interaction.deferUpdate(); return; }
+    state.config.modLogChannelId = channelId;
+    saveState();
+    await interaction.deferUpdate();
+    await upsertPanel("admin", interaction.channel);
+    return;
+  }
+
+if (id === "admin:onboarding:welcome:channel") {
+    if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+    const channelId = interaction.values?.[0];
+    if (!channelId) { await interaction.deferUpdate(); return; }
+    state.config.welcome = state.config.welcome ?? {};
+    state.config.welcome.channelId = channelId;
+    saveState();
+    await interaction.deferUpdate();
+    await upsertPanel("admin", interaction.channel);
+    return;
+  }
+
+if (id === "admin:onboarding:goodbye:channel") {
+    if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+    const channelId = interaction.values?.[0];
+    if (!channelId) { await interaction.deferUpdate(); return; }
+    state.config.goodbye = state.config.goodbye ?? {};
+    state.config.goodbye.channelId = channelId;
+    saveState();
+    await interaction.deferUpdate();
+    await upsertPanel("admin", interaction.channel);
+    return;
+  }
+
+if (id === "admin:onboarding:verify:channel") {
+    if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+    const channelId = interaction.values?.[0];
+    if (!channelId) { await interaction.deferUpdate(); return; }
+    state.config.security = state.config.security ?? {};
+    state.config.security.verificationChannelId = channelId;
+    saveState();
+    await interaction.deferUpdate();
+    await upsertPanel("admin", interaction.channel);
+    return;
+  }
+
+
+}
+
+if (interaction.isStringSelectMenu()) {
+      const id = interaction.customId;
+
+      // Workflow: pick a running task to finish
+      if (id === "wf:donepick") {
+        const value = interaction.values?.[0];
+        state.panels = state.panels ?? {};
+        state.panels.workflow = state.panels.workflow ?? {};
+        state.panels.workflow.selectedTaskId = value && value !== "none" ? String(value) : null;
+        saveState();
+        await interaction.deferUpdate();
+        await refreshAllPanels();
+        return;
+      }
+
+      if (id === "admin:setup:section") {
+  if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+
+  const value = interaction.values?.[0];
+  if (!value) {
+    await interaction.deferUpdate();
+    return;
+  }
+
+  state.panels = state.panels ?? {};
+  state.panels.admin = state.panels.admin ?? {};
+  state.panels.admin.setup = state.panels.admin.setup ?? { section: "DEPLOY" };
+  state.panels.admin.setup.section = value;
+  saveState();
+
+  await interaction.deferUpdate();
+  await upsertPanel("admin", interaction.channel);
+  return;
+}
+
+if (id === "admin:setup:selectpanel") {
+  if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+
+  const value = interaction.values?.[0];
+  if (!value) {
+    await interaction.deferUpdate();
+    return;
+  }
+
+  state.panels = state.panels ?? {};
+  state.panels.admin = state.panels.admin ?? {};
+  state.panels.admin.panelDeploy = state.panels.admin.panelDeploy ?? { panel: "details", channelId: state.config.detailsChannelId ?? null };
+  state.panels.admin.panelDeploy.panel = value;
+  saveState();
+
+  await interaction.deferUpdate();
+  await upsertPanel("admin", interaction.channel);
+  return;
+}
+
+if (id === "admin:panels:selectpanel") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+
+        const value = interaction.values?.[0];
+        if (!value) {
+          await interaction.deferUpdate();
+          return;
+        }
+
+        state.panels = state.panels ?? {};
+        state.panels.admin = state.panels.admin ?? {};
+        state.panels.admin.panelDeploy = state.panels.admin.panelDeploy ?? { panel: "details", channelId: state.config.detailsChannelId ?? null };
+        state.panels.admin.panelDeploy.panel = value;
+        saveState();
+
+        await interaction.deferUpdate();
+        await upsertPanel("admin", interaction.channel);
+        return;
+      }
+
+
+      // Admin: Onboarding section select
+      if (id === "admin:onboarding:section") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        const value = interaction.values?.[0];
+        if (!value) { await interaction.deferUpdate(); return; }
+        state.panels = state.panels ?? {};
+        state.panels.admin = state.panels.admin ?? {};
+        state.panels.admin.onboarding = state.panels.admin.onboarding ?? { section: "WELCOME" };
+        state.panels.admin.onboarding.section = value;
+        saveState();
+        await interaction.deferUpdate();
+        await upsertPanel("admin", interaction.channel);
+        return;
+      }
+
+      // Admin: Security section select
+      if (id === "admin:security:section") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        const value = interaction.values?.[0];
+        if (!value) { await interaction.deferUpdate(); return; }
+        state.panels = state.panels ?? {};
+        state.panels.admin = state.panels.admin ?? {};
+        state.panels.admin.security = state.panels.admin.security ?? { section: "ANTISCAM" };
+        state.panels.admin.security.section = value;
+        saveState();
+        await interaction.deferUpdate();
+        await upsertPanel("admin", interaction.channel);
+        return;
+      }
+
+if (id.startsWith("fd:planselect:")) {
+        const fieldId = id.split(":")[2];
+        const value = interaction.values[0];
+
+        const f = getField(fieldId);
+        if (value === "CLEAR") {
+          f.plannedCrop = null;
+          saveState();
+          logActivity(`<@${interaction.user.id}> očistio plan sjetve (polje ${fieldId}).`);
+          await interaction.update({ ...eph(), content: "Plan sjetve je obrisan.", components: [] });
+          await updateDetailsPanel(fieldId, interaction.channel);
+          await refreshAllPanels();
+          return;
+        }
+
+        const crop = CROPS.find((c) => c.key === value);
+        if (!crop) return interaction.reply({ ...eph(), content: "Nepoznata kultura." });
+
+        f.plannedCrop = value;
+        saveState();
+        logActivity(`<@${interaction.user.id}> postavio plan sjetve: **${crop.label}** (polje ${fieldId}).`);
+        await interaction.update({ ...eph(), content: `Plan sjetve postavljen: ${crop.emoji} **${crop.label}**`, components: [] });
+
+        // If we are already on SEED_PICK, apply immediately
+        applyPlannedSeedingIfReady(fieldId, interaction.user.id);
+
+        await updateDetailsPanel(fieldId, interaction.channel);
+        await refreshAllPanels();
+        return;
+      }
+    }
+
+    // MODALS
+    if (interaction.isModalSubmit()) {
+      const id = interaction.customId;
+
+      // Onboarding / Security modals
+      if (id === "admin:modal:welcomeMessage") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        state.config.welcome = state.config.welcome ?? {};
+        state.config.welcome.message = interaction.fields.getTextInputValue("msg");
+        saveState();
+        await refreshAllPanels();
+        return interaction.reply({ ...eph(), content: "Welcome tekst spremljen." });
+      }
+
+      if (id === "admin:modal:goodbyeMessage") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        state.config.goodbye = state.config.goodbye ?? {};
+        state.config.goodbye.message = interaction.fields.getTextInputValue("msg");
+        saveState();
+        await refreshAllPanels();
+        return interaction.reply({ ...eph(), content: "Goodbye tekst spremljen." });
+      }
+
+      if (id === "admin:modal:roles") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        const q = String(interaction.fields.getTextInputValue("quarantine") ?? "").trim();
+        const m = String(interaction.fields.getTextInputValue("member") ?? "").trim();
+        state.config.security = state.config.security ?? {};
+        state.config.security.quarantineRoleId = q || null;
+        state.config.security.memberRoleId = m || null;
+        saveState();
+        await refreshAllPanels();
+        return interaction.reply({ ...eph(), content: "Role postavke spremljene." });
+      }
+
+      if (id === "admin:modal:minage") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        const raw = String(interaction.fields.getTextInputValue("days") ?? "0").trim();
+        const days = Number(raw);
+        state.config.security = state.config.security ?? {};
+        state.config.security.minAccountAgeDays = Number.isFinite(days) ? Math.max(0, Math.min(3650, days)) : 0;
+        saveState();
+        await refreshAllPanels();
+        return interaction.reply({ ...eph(), content: "Min account age spremljen." });
+      }
+
+      if (id === "admin:modal:antiscamTimeout") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        state.config.security = state.config.security ?? {};
+        state.config.security.antiScam = state.config.security.antiScam ?? {};
+        const raw = String(interaction.fields.getTextInputValue("minutes") ?? "10").trim();
+        const minutes = Number(raw);
+        state.config.security.antiScam.timeoutMinutes = Number.isFinite(minutes) ? Math.max(0, Math.min(1440, minutes)) : 10;
+        saveState();
+        await refreshAllPanels();
+        return interaction.reply({ ...eph(), content: "Anti-scam timeout spremljen." });
+      }
+
+      if (id === "admin:modal:antiscamKeywords") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        state.config.security = state.config.security ?? {};
+        state.config.security.antiScam = state.config.security.antiScam ?? {};
+        const raw = String(interaction.fields.getTextInputValue("keywords") ?? "");
+        const keywords = raw.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 60);
+        state.config.security.antiScam.keywords = keywords;
+        saveState();
+        await refreshAllPanels();
+        return interaction.reply({ ...eph(), content: "Keywords spremljeni." });
+      }
+
+      if (id === "admin:modal:antiraidThreshold") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        state.config.security = state.config.security ?? {};
+        state.config.security.antiRaid = state.config.security.antiRaid ?? {};
+        const windowSec = Number(String(interaction.fields.getTextInputValue("windowSec") ?? "30").trim());
+        const maxJoins = Number(String(interaction.fields.getTextInputValue("maxJoins") ?? "5").trim());
+        state.config.security.antiRaid.windowSec = Number.isFinite(windowSec) ? Math.max(5, Math.min(600, windowSec)) : 30;
+        state.config.security.antiRaid.maxJoins = Number.isFinite(maxJoins) ? Math.max(2, Math.min(50, maxJoins)) : 5;
+        saveState();
+        await refreshAllPanels();
+        return interaction.reply({ ...eph(), content: "Anti-raid prag spremljen." });
+      }
+
+      if (id === "admin:modal:antiraidLockdown") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        state.config.security = state.config.security ?? {};
+        state.config.security.antiRaid = state.config.security.antiRaid ?? {};
+        const minutes = Number(String(interaction.fields.getTextInputValue("minutes") ?? "10").trim());
+        state.config.security.antiRaid.lockdownMinutes = Number.isFinite(minutes) ? Math.max(1, Math.min(180, minutes)) : 10;
+        saveState();
+        await refreshAllPanels();
+        return interaction.reply({ ...eph(), content: "Lockdown spremljen." });
+      }
+
+      if (id === "admin:modal:setlog") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        const channelId = parseChannelId(interaction.fields.getTextInputValue("channel"));
+        if (!channelId) return interaction.reply({ ...eph(), content: "Ne mogu parsati kanal. Upiši #mention ili ID." });
+
+        state.config.logChannelId = channelId;
+        saveState();
+        logActivity(`<@${interaction.user.id}> postavio log kanal: <#${channelId}>.`);
+        await refreshAllPanels();
+        return interaction.reply({ ...eph(), content: `Log kanal postavljen na <#${channelId}>.` });
+      }
+
+if (id === "admin:modal:setdetailsch") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        const channelId = parseChannelId(interaction.fields.getTextInputValue("channel"));
+        if (!channelId) return interaction.reply({ ...eph(), content: "Ne mogu parsati kanal. Upiši #mention ili ID." });
+
+        state.config.detailsChannelId = channelId;
+        saveState();
+        logActivity(`<@${interaction.user.id}> postavio default details kanal: <#${channelId}>.`);
+        await refreshAllPanels();
+        return interaction.reply({ ...eph(), content: `Details default kanal postavljen na <#${channelId}>.` });
+      }
+
+if (id === "admin:modal:sethistorych") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        const channelId = parseChannelId(interaction.fields.getTextInputValue("channel"));
+        if (!channelId) return interaction.reply({ ...eph(), content: "Ne mogu parsati kanal. Upiši #mention ili ID." });
+
+        state.config.taskHistoryChannelId = channelId;
+        saveState();
+        logActivity(`<@${interaction.user.id}> postavio task history kanal: <#${channelId}>.`);
+        await refreshAllPanels();
+        return interaction.reply({ ...eph(), content: `Task history kanal postavljen na <#${channelId}>.` });
+      }
+
+if (id === "admin:modal:colors") {
+        const a = interaction.fields.getTextInputValue("color_admin");
+        const w = interaction.fields.getTextInputValue("color_workflow");
+        const f = interaction.fields.getTextInputValue("color_fieldDetails");
+        const act = interaction.fields.getTextInputValue("color_activity");
+
+        state.config.embedColors = state.config.embedColors ?? {};
+        state.config.embedColors.admin = parseHexColor(a, state.config.embedColors.admin ?? 0x5865F2);
+        state.config.embedColors.workflow = parseHexColor(w, state.config.embedColors.workflow ?? 0x22aa22);
+        state.config.embedColors.fieldDetails = parseHexColor(f, state.config.embedColors.fieldDetails ?? 0x22aa22);
+        state.config.embedColors.activity = parseHexColor(act, state.config.embedColors.activity ?? 0x22aa22);
+
+        saveState();
+        await updateAllPanels(client);
+
+        await interaction.reply({
+          ...eph(),
+          content: `Spremljeno. Admin: #${state.config.embedColors.admin.toString(16).padStart(6, "0")}, Workflow: #${state.config.embedColors.workflow.toString(16).padStart(6, "0")}, Detalji: #${state.config.embedColors.fieldDetails.toString(16).padStart(6, "0")}, Activity: #${state.config.embedColors.activity.toString(16).padStart(6, "0")}.`,
+        });
+        return;
+      }
+
+if (id.startsWith("admin:modal:deploy:")) {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+
+        const type = id.split(":")[3];
+        const channelId = parseChannelId(interaction.fields.getTextInputValue("channel"));
+        if (!channelId) return interaction.reply({ ...eph(), content: "Ne mogu parsati kanal. Upiši #mention ili ID." });
+
+        const ch = await client.channels.fetch(channelId).catch(() => null);
+        if (!ch || !ch.isTextBased()) return interaction.reply({ ...eph(), content: "Kanal nije valjan ili nije text channel." });
+
+        const guild = interaction.guild;
+        const me = guild?.members?.me ?? (await guild.members.fetchMe());
+        if (!hasChannelSendPerms(ch, me)) return interaction.reply({ ...eph(), content: "Nemam permission za taj kanal (View/Send/Embed Links)." });
+
+        await upsertPanel(type, ch);
+        logActivity(`<@${interaction.user.id}> deployao panel **${type}** u <#${channelId}>.`);
+        await refreshAllPanels();
+        return interaction.reply({ ...eph(), content: `Deploy OK: **${type}** -> <#${channelId}>.` });
+      }
+
+if (id.startsWith("admin:modal:fields:")) {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+
+        const action = id.split(":")[3];
+        const ids = parseIds(interaction.fields.getTextInputValue("ids"));
+        if (!ids.length) return interaction.reply({ ...eph(), content: "Nema validnih ID-eva." });
+
+        if (action === "add") {
+          const set = new Set(getFieldList());
+          for (const n of ids) set.add(n);
+          state.config.fields = [...set].sort((a, b) => a - b);
+          saveState();
+          logActivity(`<@${interaction.user.id}> dodao polja: ${ids.join(", ")}.`);
+          await refreshAllPanels();
+          await interaction.deferReply(eph());
+          await ackAndDelete(interaction, `Added: ${ids.join(", ")}`);
+          return;
+        }
+
+if (action === "remove") {
+          const remove = new Set(ids);
+          state.config.fields = getFieldList().filter((n) => !remove.has(n));
+          saveState();
+          logActivity(`<@${interaction.user.id}> maknuo polja: ${ids.join(", ")}.`);
+          await refreshAllPanels();
+          await interaction.deferReply(eph());
+          await ackAndDelete(interaction, `Removed: ${ids.join(", ")}`);
+          return;
+        }
+      }
+
+if (id === "fd:modal:jump") {
+        const raw = (interaction.fields.getTextInputValue("fieldNumber") ?? "").trim();
+        const n = Number(raw.replace(/[^0-9]/g, ""));
+        if (!Number.isFinite(n) || n <= 0) {
+          return interaction.reply({ ...eph(), content: "Upiši valjani broj polja (npr. 2 ili 15)." });
+        }
+
+        // auto-add field if missing (practical default)
+        state.config = state.config ?? {};
+        state.config.fields = state.config.fields ?? [];
+        if (!state.config.fields.includes(n)) state.config.fields.push(n);
+        ensureConfig();
+
+        state.panels = state.panels ?? {};
+        state.panels.details = state.panels.details ?? {};
+        const meta = state.panels.details;
+        meta.fieldId = String(n);
+        meta.view = "MAIN";
+
+        // Ensure the field page selector shows the chosen field
+        const list = getFieldList();
+        const idx = list.findIndex((x) => String(x) === String(n));
+        meta.page = idx >= 0 ? Math.floor(idx / 3) : 0;
+
+        saveState();
+
+        // silent confirmation (avoid popups)
+        await interaction.deferReply(eph());
+        await upsertPanel("details", interaction.channel, state.config?.fieldsPanelTitle ?? null);
+        await interaction.deleteReply().catch(() => {});
+        return;
+      }
+
+if (id === "admin:modal:paneltitle") {
+        if (!isAdmin(interaction.member)) return interaction.reply({ ...eph(), content: "Nemaš admin ovlasti." });
+        const title = (interaction.fields.getTextInputValue("title") ?? "").trim().slice(0, 60);
+        if (!title) return interaction.reply({ ...eph(), content: "Naslov ne smije biti prazan." });
+
+        ensureConfig();
+        state.config.fieldsPanelTitle = title;
+        saveState();
+
+        await interaction.reply({ ...eph(), content: `Spremljeno. Novi naziv panela: **${title}**` });
+        await refreshAllPanels();
+        return;
+      }
+
+if (id.startsWith("fd:modal:notes:")) {
+        const parts = id.split(":");
+        const fieldId = parts[3];
+        const taskId = parts[4];
+
+        const task = state.tasks?.[taskId];
+        if (!task) return interaction.reply({ ...eph(), content: "Task više ne postoji." });
+
+        task.notes = (interaction.fields.getTextInputValue("notes") ?? "").slice(0, 400);
+        saveState();
+        logActivity(`<@${interaction.user.id}> ažurirao napomenu za **${task.id}** (polje ${fieldId}).`);
+
+        await interaction.reply({ ...eph(), content: "Spremljeno." });
+        await updateDetailsPanel(fieldId, interaction.channel);
+        await refreshAllPanels();
+        return;
+      }
+    }
+  } catch (err) {
+    console.error("Interaction error:", err);
+    try {
+      if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+        await interaction.reply({ ...eph(), content: "Greška u bota (pogledaj log)." });
+      }
+    } catch {}
+  }
+});
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// READY
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+client.once(Events.ClientReady, async () => {
+  console.log(`Logged in as ${client.user.tag}`);
+
+  try {
+    await registerSlashCommands();
+  } catch (e) {
+    console.error("Slash register error:", e);
+  }
+
+  // Refresh panels on boot (non-destructive)
+  try {
+    await refreshAllPanels();
+  } catch {}
+
+  // Low-noise daily summary (03:00 Zagreb window)
+  try {
+    startDailySummaryLoop();
+  } catch {}
+
+  // Scheduled backups (every 12h) to backup channel (or fallback log/history)
+  try {
+    startBackupLoop();
+  } catch {}
+});
+
+process.on("unhandledRejection", (reason) => console.error("Unhandled Rejection:", reason));
+process.on("uncaughtException", (err) => console.error("Uncaught Exception:", err));
+
+client.login(ENV.token);

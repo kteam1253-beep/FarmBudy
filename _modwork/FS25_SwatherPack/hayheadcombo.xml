@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<vehicle type="mower" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://validation.gdn.giants-software.com/xml/fs25/vehicle.xsd">
+    <annotation>Copyright (C) GIANTS Software GmbH, All Rights Reserved.</annotation>
+
+    <storeData>
+        <name>Razor Bar 16' + Twin Max Conditioner</name>
+        <specs>
+            <weight minValue="2300"/>
+			<combination xmlFilename="swather.xml"/>
+        </specs>
+        <functions>
+            <function>$l10n_function_cutterWindrowerGrass</function>
+            <function>$l10n_function_tedder</function>
+        </functions>
+        <image>store_hayhead.png</image>
+        <bundleElements>
+            <bundleElement>
+                <xmlFilename>hayhead.xml</xmlFilename>
+                <offset>0 0 0</offset>
+                <yRotation>0</yRotation>
+            </bundleElement>
+            <bundleElement>
+                <xmlFilename>hayheadcrimper.xml</xmlFilename>
+                <offset>0 0 -1</offset>
+                <yRotation>0</yRotation>
+            </bundleElement>
+        </bundleElements>
+        <attacherInfo>
+            <attach bundleElement0="1" bundleElement1="2" attacherJointIndex="1" inputAttacherJointIndex="1"/>
+        </attacherInfo>
+        <brand>AGCO</brand>
+        <rotation>0</rotation>
+        <category>mowers combineWindrower</category>
+        <shopLoadingDelay initial="0.3"/>
+        <vertexBufferMemoryUsage>0</vertexBufferMemoryUsage>
+        <indexBufferMemoryUsage>0</indexBufferMemoryUsage>
+        <textureMemoryUsage>0</textureMemoryUsage>
+        <audioMemoryUsage>0</audioMemoryUsage>
+        <instanceVertexBufferMemoryUsage>0</instanceVertexBufferMemoryUsage>
+        <instanceIndexBufferMemoryUsage>0</instanceIndexBufferMemoryUsage>
+    </storeData>
+
+    <base>
+        <size width="5" length="1.5" height="1.35"/>
+        <components maxMass="2300"/>
+    </base>
+</vehicle>

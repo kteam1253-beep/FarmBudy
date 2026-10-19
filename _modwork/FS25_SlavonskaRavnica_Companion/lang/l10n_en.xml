@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<l10n>
+  <translationContributors>DaVaR</translationContributors>
+  <texts>
+  
+    <!-- Server Responses -->
+    <text name="chat_greeting01"                      text="Bok %s!" />
+    <text name="chat_greeting02"                      text="Pozdrav %s!" />
+    <text name="chat_greeting03"                      text="Zdravo %s!" />
+    <text name="chat_greeting04"                      text="Dobar dan %s!" />
+    <text name="chat_greeting05"                      text="E %s!" />
+    <text name="chat_greetingTrigger01"               text="bok" />
+    <text name="chat_greetingTrigger02"               text="pozdrav" />
+    <text name="chat_greetingTrigger03"               text="zdravo" />
+    <text name="chat_greetingTrigger04"               text="hey" />
+    <text name="chat_greetingTrigger05"               text="cao" />
+    <text name="chat_now_admin"                       text=" je sada Admin!" />
+    <text name="chat_game_saved"                      text="Igra se sprema!" />
+    <text name="chat_now_already_admin"               text="Vec si Admin!" />
+    <text name="chat_admin_removed"                   text=" vise nije Admin!" />
+    <text name="chat_is_already_admin"                text=" je vec Admin!" />
+    <text name="chat_rememberme"                      text=" je sada automatski Admin!" />
+    <text name="chat_forgetme"                        text=" vise nije automatski Admin!" />
+    <text name="chat_forgetme_error"                  text=" greska pri uklanjanju automatskog Admina!" />
+
+    <!-- Commands -->   
+    <text name="chat_command_me_admin"                text="#meAdmin" />
+    <text name="chat_command_remove_admin"            text="#meNoAdmin" />
+    <text name="chat_command_users"                   text="#getUsers" />
+    <text name="chat_command_moo"                     text="#moo" />
+    <text name="chat_command_make_admin"              text="#makeAdmin" />
+    <text name="chat_command_rememberme"              text="#rememberMe" />
+    <text name="chat_command_forgetme"                text="#forgetMe" />
+    <text name="chat_command_getfarms"                text="#getFarms" />
+    <text name="chat_command_makefm"                  text="#makeFM" />
+    <text name="chat_command_save_vehicles"           text="#saveVehicles" />
+
+    <!-- Help Info -->    
+    <text name="chat_command_info_me_admin"           text="Ako si se prije prijavio kao admin, ovime ponovo dobijes admin prava." />
+    <text name="chat_command_info_remove_admin"       text="Uklanja admin prava s tvog racuna za trenutnu sesiju." />
+    <text name="chat_command_info_users"              text="Prikazuje sve korisnike na serveru s njihovim ID-jem." />
+    <text name="chat_command_info_moo"                text="Ova naredba ispisuje tekstualnu kravu. Muu." />
+    <text name="chat_command_info_make_admin"         text="Admin moze ovom naredbom dati admin prava drugom igracu. ID korisnika dobijes naredbom #getUsers." />
+    <text name="chat_command_info_rememberme"         text="Postavlja korisnika da automatski dobije admin prava pri svakom ulasku na server." />
+    <text name="chat_command_info_forgetme"           text="Uklanja automatska admin prava pri ulasku na server." />
+    <text name="chat_command_info_getfarms"           text="Prikazuje sve farme na serveru s njihovim ID-jem." />
+    <text name="chat_command_info_makefm"             text="Dodaje korisnika na farmu. ID korisnika iz #getUsers, ID farme iz #getFarms." />
+    <text name="chat_command_info_save_vehicles"      text="Sprema lokacije svih vozila na serveru u datoteku." />
+
+    <!-- Help Page Text -->   
+    <text name="dc_help_title"                        text="SR Companion" />
+    <text name="dc_overview"                          text="Pomoc: SR Companion" />
+    <text name="dc_help_page_base_text"               text="SR Companion je alat za dedicated server koji adminima pomaze u upravljanju serverom Slavonska ravnica." />
+    <text name="dc_help_page_base_cmds"               text="Sljedece naredbe upisujes direktno u multiplayer chat." />
+
+    <!-- First Load Text -->
+    <text name="fsg_firstLoadInfo"                    text="Dobrodosli na Slavonsku ravnicu!
+
+Drago nam je sto si tu. Nadamo se da ces uzivati u igri s nama.
+
+Prije nego krenes, par stvari koje bi trebao znati:
+- Postuj pravila servera (pogledaj na Discordu)
+- Pazi na tudje usjeve, vozila i opremu
+- Parkiraj uredno da ne smetas drugima
+- Ako trebas pomoc, slobodno pitaj na Discordu
+
+Sretno s prvom zetvom i zabavi se!" />
+
+    <!-- Warnings -->   
+    <text name="rc_max_hire_warn"                     text="Ova farma je dosegla maksimalan broj najamnih radnika." />
+    <text name="rc_ss_off"                            text="Super snaga je iskljucena od strane servera." />
+    <text name="rc_max_pens"                          text="Ova farma ima maksimalan broj obora (%s)." />
+    <text name="rc_max_placeables"                    text="Ova farma ima maksimalan broj objekata za ovaj artikl." />
+    <text name="rc_max_productions"                   text="Ova farma ima maksimalan broj tvornica za ovaj artikl." />
+    <text name="rc_max_sellingpoints"                 text="Ova farma ima maksimalan broj prodajnih mjesta za ovaj artikl." />
+    <text name="rc_max_farmhouses"                    text="Ova farma ima maksimalan broj kuca za ovaj artikl." />
+    <text name="rc_max_lights"                        text="Ova farma ima maksimalan broj rasvjeta za ovaj artikl." />
+    <text name="rc_max_generators"                    text="Ova farma ima maksimalan broj generatora za ovaj artikl." />
+    <text name="rc_max_greenhouses"                   text="Ova farma ima maksimalan broj staklenika za ovaj artikl." />
+    <text name="rc_admin_only_place"                  text="Samo admini mogu postaviti ovaj objekt." />
+    <text name="sync_warning"                         text="Upozorenje sinkronizacije - igrac dolazi!" />
+    <text name="rc_max_items"                         text="Ova farma ima maksimalan broj artikala za ovaj artikl." />
+    <text name="rc_max_missions"                      text="Ova farma je dosegla maksimalan broj dozvoljenih misija." />
+    <text name="ui_fsgSettingsNoPermissionText"       text="Samo admini mogu mijenjati ove postavke." />
+    <text name="rc_production_purchase_disabled"      text="Kupovina produkcija je iskljucena." />
+    <text name="rc_own_hire_warn"                     text="Mozes unajmiti samo opremu koja pripada tvojoj farmi." />
+
+    <!-- Vehicle Storage -->    
+    <text name ="button_storeVehicle"                 text="Spremi vozilo na web" />
+    <text name ="button_storeVehicleConfirm"          text="Zaista zelis spremiti ovo vozilo na web stranicu za $1,000?" />
+
+    <!-- Vehicle Edit -->   
+    <text name="infohud_vehicleOwnerFarmId"           text="ID farme vlasnika" />
+    <text name="infohud_vehicleOperatingTime"         text="Radni sati" />
+
+    <!-- Field Info Texts -->   
+    <text name="fieldInfo_expectedYield"              text="Ocekivani prinos" />
+    <text name="fieldInfo_yieldPotential"             text="Potencijal prinosa" />
+    <text name="text_Foragable"                       text="Krma" />
+    <text name="text_Narrow_Wheels"                   text="Samo uske" />
+    <text name="text_All_Wheels"                      text="Sve gume i gusjenice" />
+    <text name="text_growth_stage"                    text="Faza rasta" />
+    <text name="text_wheel_type"                      text="Preporucene gume" />
+    <text name="text_none"                            text="Nema" />
+    <text name="text_unknown"                         text="Nepoznato" />
+    <text name="warning_canNotPlantOnField"           text="Ne mozes saditi drvece na poljima." />
+    
+    <!-- Setting Menu -->
+    <text name="FSG_MENU"                             text="SR Companion" />
+    <text name="input_FSG_MENU"                       text="Otvori SR Companion" />
+    <text name="ui_settings_info"                     text="SR Info" />
+    <text name="ui_settings_settings"                 text="SR Postavke" />
+    <text name="ui_settings_tools"                    text="SR Alati" />
+    <text name="ui_settings_farmTransactions"         text="Transakcije farme" />
+    <text name="ui_settings_companion_settings"       text="Postavke Companiona" />
+    <text name="ui_settings_game_limits"              text="Ogranicenja igre" />
+    <text name="ui_settings_paintAnywhere"            text="Bojanje svugdje" />
+    <text name="ui_settings_toolTip_paintAnywhere"    text="Omogucuje igracima da boje ili terraformaju bilo gdje na mapi." />
+    <text name="ui_settings_limitsEnabled"            text="Ogranicenja igre" />
+    <text name="ui_settings_toolTip_limitsEnabled"     text="Ukljucuje ili iskljucuje sva ogranicenja (limiti za AI, misije, zivotinje, produkcije, objekte itd.). Kad je iskljuceno, nema limita." />
+    <text name="ui_settings_hireLimit"                text="Limit AI radnika" />
+    <text name="ui_settings_toolTip_hireLimit"        text="Maksimalan broj AI radnika po farmi." />
+    <text name="ui_settings_maxMissions"              text="Maks. misija" />
+    <text name="ui_settings_toolTip_maxMissions"      text="Maksimalan broj aktivnih misija po farmi." />
+    <text name="ui_settings_husbandryLimit"           text="Limit staje" />
+    <text name="ui_settings_toolTip_husbandryLimit"   text="Maksimalan broj obora po vrsti zivotinja." />
+    <text name="ui_settings_productionPoints"         text="Limit produkcija" />
+    <text name="ui_settings_toolTip_productionPoints" text="Maksimalan broj produkcija po artiklu po farmi." />
+    <text name="ui_settings_sellingPoints"            text="Limit prodajnih mjesta" />
+    <text name="ui_settings_toolTip_sellingPoints"    text="Maksimalan broj prodajnih mjesta po artiklu po farmi." />
+    <text name="ui_settings_farmHouses"               text="Limit kuca" />
+    <text name="ui_settings_toolTip_farmHouses"       text="Maksimalan broj kuca po artiklu po farmi." />
+    <text name="ui_settings_generators"               text="Limit generatora" />
+    <text name="ui_settings_toolTip_generators"       text="Maksimalan broj generatora po artiklu po farmi." />
+    <text name="ui_settings_floodLighting"            text="Limit rasvjete" />
+    <text name="ui_settings_toolTip_floodLighting"    text="Maksimalan broj rasvjetnih stupova po artiklu po farmi." />
+    <text name="ui_settings_placeableGreenhouses"            text="Limit staklenika" />
+    <text name="ui_settings_toolTip_placeableGreenhouses"    text="Maksimalan broj staklenika po artiklu po farmi." />
+    <text name="ui_settings_otherPlaceables"          text="Limit ostalih objekata" />
+    <text name="ui_settings_toolTip_otherPlaceables"  text="Maksimalan broj ostalih objekata po artiklu po farmi." />
+    <text name="ui_settings_gardenSheds"              text="Limit vrtnih kucica" />
+    <text name="ui_settings_toolTip_gardenSheds"      text="Maksimalan broj vrtnih kucica po artiklu po farmi." />
+    <text name="ui_settings_dismissWorkers"           text="Automatsko otpustanje radnika" />
+    <text name="ui_settings_toolTip_dismissWorkers"   text="Radnici ostavljeni na praznoj farmi se automatski otpustaju." /> 
+    <text name="ui_settings_inboxActive"              text="Companion Inbox" />
+    <text name="ui_settings_toolTip_inboxActive"      text="Kad je ukljuceno, SR Companion obraduje naredbe iz inbox foldera. Kad je iskljuceno, naredbe se ignoriraju." /> 
+    <text name="ui_transactionId"                     text="ID transakcije" />
+    <text name="ui_settings_toolTip_transactionId"    text="Trenutni ID transakcije za pracenje komunikacije s web stranicom." />
+    <text name="ui_settings_coop"                     text="CO-OP postavke" />
+    <text name="ui_settings_coopLimitsEnabled"        text="CO-OP ogranicenja" />
+    <text name="ui_settings_toolTip_coopLimitsEnabled" text="Ukljucuje CO-OP ogranicenja za server." />
+    <text name="ui_settings_coopMinCruiseSpeed"       text="Min. tempomat brzina" />
+    <text name="ui_settings_toolTip_coopMinCruiseSpeed" text="Sustav provjerava vozila koja voze s tempomatom postavljenim na ili ispod ove brzine." />
+    <text name="ui_settings_coopMinCruiseMin"         text="Min. tempomat minute" />
+    <text name="ui_settings_toolTip_coopMinCruiseMin" text="Koliko minuta vozilo smije biti na minimalnoj brzini tempomata prije nego se tempomat iskljuci." />
+    <text name="ui_settings_disableSleep"             text="Iskljuci spavanje" />
+    <text name="ui_settings_toolTip_disableSleep"     text="Kad je ukljuceno, igraci ne mogu spavati u igri." />
+    <text name="ui_settings_disableBorrowEquipment"   text="Iskljuci posudbu opreme" />
+    <text name="ui_settings_toolTip_disableBorrowEquipment"   text="Iskljucuje mogucnost posudbe opreme za ugovore." /> 
+    <text name="ui_noTransactionsFound"               text="Nema transakcija za ovu farmu." />
+
+    <!-- Info Text -->
+    <text name="ui_settings_info_1"                   text="Dobrodosli na Slavonsku ravnicu! Drago nam je da si dio ove price o (piksel) poljoprivredi!" />
+    <text name="ui_settings_info_2"                   text="Ovaj Companion mod omogucuje komunikaciju servera s Discord botom (FarmBuddy) za radnje poput transfera novca, pracenja vozila i jos toga." />
+    <text name="ui_settings_info_3"                   text="Postavke u ovom panelu mogu mijenjati samo admini, ali su vidljive svima." />
+    <text name="ui_settings_info_4"                   text="SR Companion je prilagoden okruzenju Slavonska ravnica FS25 servera." />
+    <text name="ui_settings_info_5"                   text="Pokrece Slavonska ravnica" />
+    <text name="ui_settings_info_6"                   text="Dizajnirano za Slavonska ravnica" />
+
+    <!-- Real Time Sync Stuffs -->
+    <text name="title_realTimeSync"                   text="Sinkronizacija vremena" />
+    <text name="title_realTimeSync_title"             text="Postavke sinkronizacije vremena" />
+    <text name="setting_realTimeSync_serverOffset"    text="Pomak od UTC (sati)" />
+    <text name="toolTip_realTimeSync_serverOffset"    text="Postavlja zeljenu vremensku zonu igre. UTC-11 znaci da je vrijeme u igri 12 sati iza srednjoeuropskog vremena (CET). UTC = realno vrijeme." />
+    <text name="setting_realTimeSync_timeFixHour"     text="Sat korekcije" />
+    <text name="toolTip_realTimeSync_timeFixHour"     text="Odreduje kad se vrijeme smije korigirati. 'Uvijek' znaci da se stalno uskladuje. Ako odaberete odredeni sat, korekcija se pokrece samo u tom satu." />
+    <text name="setting_realTimeSync_autoSetTime"     text="Automatski preskoci vrijeme" />
+    <text name="toolTip_realTimeSync_autoSetTime"     text="Kad je ukljuceno i igra je vise od ~5 min ispred ciljanog vremena, automatski se prebacuje na sljedeci dan umjesto sporog usporavanja." />
+    <text name="setting_realTimeSync_timeSyncEnable"  text="Sinkronizacija vremena" />
+    <text name="toolTip_realTimeSync_timeSyncEnable"  text="Ukljucuje ili iskljucuje sinkronizaciju vremena u igri sa stvarnim vremenom." />
+    <text name="title_realTimeSync_inProgress"        text="Sinkronizacija u tijeku - ciljano: " />
+    <text name="title_realTimeSync_gameTimeNow"       text="  Trenutno u igri: " />
+    <text name="title_realTimeSync_setInProgress"     text="Sinkronizacija u tijeku - vrijeme postavljeno na: " />
+    <text name="setting_realTimeSync_progressNotification"    text="Obavijest o sinkronizaciji" />
+    <text name="toolTip_realTimeSync_progressNotification"    text="Ukljucuje ili iskljucuje obavijest koja se prikazuje kad je sinkronizacija vremena u tijeku." />
+
+    <!-- Target Time Settings -->
+    <text name="setting_realTimeSync_targetTimeEnabled"       text="Ciljano vrijeme" />
+    <text name="toolTip_realTimeSync_targetTimeEnabled"       text="Kad je ukljuceno, igra se sinkronizira na rucno upisano ciljano vrijeme umjesto na sat servera." />
+    <text name="setting_realTimeSync_targetTimeHour"          text="Ciljani sat" />
+    <text name="toolTip_realTimeSync_targetTimeHour"          text="Sat ciljanog vremena (0-23). Koristi se samo kad je 'Ciljano vrijeme' ukljuceno." />
+    <text name="setting_realTimeSync_targetTimeMinute"        text="Ciljana minuta" />
+    <text name="toolTip_realTimeSync_targetTimeMinute"        text="Minuta ciljanog vremena (0-55, korak 5min). Koristi se samo kad je 'Ciljano vrijeme' ukljuceno." />
+
+  
+    <text name="ui_settings_enablePlayerTracking" text="Pracenje igraca (Discord mapa)" />
+    <text name="ui_settings_toolTip_enablePlayerTracking" text="Ukljucuje izvoz pozicija igraca u outbox za prikaz na Discord mapi." />
+
+    <text name="ui_settings_trackingIntervalSec" text="Interval pracenja (sek)" />
+    <text name="ui_settings_toolTip_trackingIntervalSec" text="Koliko cesto se biljezi pozicija igraca dok je aktivan (preporuceno 10s)." />
+
+    <text name="ui_settings_trackingIdleKickEnabled" text="AFK izbacivanje" />
+    <text name="ui_settings_toolTip_trackingIdleKickEnabled" text="Izbacuje igrace koji se ne pomicu odredeni broj minuta." />
+
+    <text name="ui_settings_trackingIdleKickMinutes" text="AFK minute" />
+    <text name="ui_settings_toolTip_trackingIdleKickMinutes" text="Izbaci nakon ovoliko minuta bez pomicanja (zadano 60)." />
+</texts>
+</l10n>

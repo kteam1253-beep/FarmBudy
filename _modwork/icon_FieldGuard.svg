@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <!-- Background gradient - dark green earthy tone -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2d5a1e"/>
+      <stop offset="100%" stop-color="#1a3a10"/>
+    </linearGradient>
+    <!-- Field gradient -->
+    <linearGradient id="fieldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8BC34A"/>
+      <stop offset="100%" stop-color="#558B2F"/>
+    </linearGradient>
+    <!-- Soil gradient -->
+    <linearGradient id="soilGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#795548"/>
+      <stop offset="100%" stop-color="#5D4037"/>
+    </linearGradient>
+    <!-- Shield gradient -->
+    <linearGradient id="shieldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD54F"/>
+      <stop offset="100%" stop-color="#F9A825"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded rectangle -->
+  <rect x="4" y="4" width="248" height="248" rx="24" ry="24" fill="url(#bgGrad)" stroke="#0f2608" stroke-width="4"/>
+
+  <!-- Field rows (crop furrows in perspective) -->
+  <!-- Soil base -->
+  <path d="M20,180 L236,180 L236,220 Q236,236 220,236 L36,236 Q20,236 20,220 Z" fill="url(#soilGrad)" opacity="0.8"/>
+  
+  <!-- Crop rows -->
+  <g opacity="0.9">
+    <!-- Row 1 -->
+    <path d="M40,185 C50,175 55,160 55,150" stroke="#7CB342" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M40,185 C45,172 52,162 60,155" stroke="#9CCC65" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="55" cy="148" rx="6" ry="4" fill="#7CB342"/>
+    
+    <!-- Row 2 -->
+    <path d="M65,188 C75,178 80,163 80,153" stroke="#7CB342" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M65,188 C70,175 77,165 85,158" stroke="#9CCC65" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="80" cy="151" rx="6" ry="4" fill="#7CB342"/>
+    
+    <!-- Row 3 -->
+    <path d="M90,190 C100,180 105,165 105,155" stroke="#7CB342" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M90,190 C95,177 102,167 110,160" stroke="#9CCC65" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="105" cy="153" rx="6" ry="4" fill="#7CB342"/>
+    
+    <!-- Row 4 -->
+    <path d="M115,188 C125,178 130,163 130,153" stroke="#7CB342" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M115,188 C120,175 127,165 135,158" stroke="#9CCC65" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="130" cy="151" rx="6" ry="4" fill="#7CB342"/>
+    
+    <!-- Row 5 -->
+    <path d="M140,185 C150,175 155,160 155,150" stroke="#7CB342" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M140,185 C145,172 152,162 160,155" stroke="#9CCC65" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="155" cy="148" rx="6" ry="4" fill="#7CB342"/>
+    
+    <!-- Row 6 -->
+    <path d="M165,190 C175,180 180,165 180,155" stroke="#7CB342" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M165,190 C170,177 177,167 185,160" stroke="#9CCC65" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="180" cy="153" rx="6" ry="4" fill="#7CB342"/>
+    
+    <!-- Row 7 -->
+    <path d="M190,188 C200,178 205,163 205,153" stroke="#7CB342" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M190,188 C195,175 202,165 210,158" stroke="#9CCC65" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="205" cy="151" rx="6" ry="4" fill="#7CB342"/>
+  </g>
+
+  <!-- Tire tracks crossing the field diagonally -->
+  <g opacity="0.5">
+    <path d="M30,230 Q90,200 160,175 Q200,160 230,165" stroke="#3E2723" stroke-width="5" fill="none" stroke-linecap="round" stroke-dasharray="2,4"/>
+    <path d="M35,235 Q95,205 165,180 Q205,165 235,170" stroke="#3E2723" stroke-width="5" fill="none" stroke-linecap="round" stroke-dasharray="2,4"/>
+  </g>
+
+  <!-- Shield / Guard symbol (main centerpiece) -->
+  <g transform="translate(128, 78)">
+    <!-- Shield shape -->
+    <path d="M0,-60 L50,-40 L50,10 Q50,50 0,65 Q-50,50 -50,10 L-50,-40 Z" 
+          fill="url(#shieldGrad)" stroke="#E65100" stroke-width="3"/>
+    
+    <!-- Inner shield border -->
+    <path d="M0,-50 L40,-33 L40,8 Q40,42 0,55 Q-40,42 -40,8 L-40,-33 Z" 
+          fill="none" stroke="#E65100" stroke-width="1.5" opacity="0.5"/>
+    
+    <!-- Warning exclamation mark on shield -->
+    <rect x="-5" y="-35" width="10" height="45" rx="5" fill="#D84315"/>
+    <circle cx="0" cy="25" r="7" fill="#D84315"/>
+    
+    <!-- Or alternatively: ban/stop symbol -->
+  </g>
+
+  <!-- Small coin/money icon (penalty indicator) -->
+  <g transform="translate(195, 55)">
+    <circle cx="0" cy="0" r="22" fill="#FFC107" stroke="#FF8F00" stroke-width="2.5"/>
+    <circle cx="0" cy="0" r="16" fill="none" stroke="#FF8F00" stroke-width="1.5"/>
+    <text x="0" y="6" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="22" fill="#E65100">$</text>
+  </g>
+
+  <!-- Red prohibition circle overlay on bottom-left -->
+  <g transform="translate(55, 65)">
+    <circle cx="0" cy="0" r="22" fill="none" stroke="#D32F2F" stroke-width="4" opacity="0.9"/>
+    <line x1="-15" y1="-15" x2="15" y2="15" stroke="#D32F2F" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+    <!-- Small tractor silhouette inside -->
+    <g transform="scale(0.5)" fill="#D32F2F" opacity="0.7">
+      <rect x="-12" y="-8" width="20" height="12" rx="2"/>
+      <rect x="-18" y="-2" width="8" height="10" rx="1"/>
+      <circle cx="-14" cy="10" r="5" fill="none" stroke="#D32F2F" stroke-width="2"/>
+      <circle cx="6" cy="10" r="7" fill="none" stroke="#D32F2F" stroke-width="2"/>
+    </g>
+  </g>
+
+  <!-- "FG" text label (FieldGuard) -->
+  <text x="128" y="245" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="16" fill="#FFFFFF" opacity="0.7" letter-spacing="3">FIELD GUARD</text>
+</svg>

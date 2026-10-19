@@ -1,0 +1,38 @@
+{
+	"inboxAckJsonExample": {
+		"acks": [
+			{
+				"commandRef": "1739634212345",
+				"filename": "cmd-sendChat-1739634212345.xml",
+				"status": "ok",
+				"error": ""
+			},
+			{
+				"commandRef": "1739634212345_ab12cd",
+				"filename": "bankTransfer_1739634212345_ab12cd.json",
+				"status": "failed",
+				"error": "Insufficient funds"
+			}
+		]
+	},
+	"inboxAckXmlExample": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<acks>\n  <ack commandRef=\"1739634212345\" filename=\"cmd-sendChat-1739634212345.xml\" status=\"ok\" />\n  <ack commandRef=\"1739634212345_ab12cd\" filename=\"bankTransfer_1739634212345_ab12cd.json\" status=\"failed\" error=\"Insufficient funds\" />\n</acks>",
+	"gameplayEventsJsonExample": {
+		"events": [
+			{
+				"type": "vehicle_repaired",
+				"ts": "2026-02-15T11:35:22.000Z",
+				"farmId": "3",
+				"vehicleName": "John Deere 6R 155",
+				"cost": 4200
+			},
+			{
+				"type": "contract_completed",
+				"ts": "2026-02-15T11:40:10.000Z",
+				"farmId": "3",
+				"contractType": "harvest",
+				"reward": 12850
+			}
+		]
+	},
+	"gameplayEventsXmlExample": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<events>\n  <event type=\"vehicle_repaired\" ts=\"2026-02-15T11:35:22.000Z\" farmId=\"3\" vehicleName=\"John Deere 6R 155\" cost=\"4200\" />\n  <event type=\"contract_completed\" ts=\"2026-02-15T11:40:10.000Z\" farmId=\"3\" contractType=\"harvest\" reward=\"12850\" />\n</events>"
+}

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<topArm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../../shared/xml/schema/attacherJointTopArm.xsd">
+    <filename>swathertl.i3d</filename>
+
+    <rootNode node="upperLink"/>
+    <translation node="upperLinkHead" referenceNode="referencePoint"/>
+    <scale node="scalePart" referenceNode="scalePartRef"/>
+
+    <i3dMappings>
+        <i3dMapping id="upperLink" node="0>" />
+        <i3dMapping id="upperLinkHead" node="0>0" />
+        <i3dMapping id="referencePoint" node="0>0|0" />
+        <i3dMapping id="scalePart" node="0>1" />
+        <i3dMapping id="scalePartRef" node="0>1|0" />
+    </i3dMappings>
+</topArm>

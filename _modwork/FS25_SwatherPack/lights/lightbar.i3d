@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+
+<i3D name="lightbar.i3d" version="1.6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://i3d.giants.ch/schema/i3d-1.6.xsd">
+  <Asset>
+    <Export program="GIANTS Editor 64bit" version="10.0.6"/>
+  </Asset>
+
+  <Files>
+    <File fileId="4" filename="$data/shaders/vehicleShader.xml"/>
+    <File fileId="12" filename="$data/shared/assets/lights/lizard/workingLight26_emissive.dds"/>
+    <File fileId="1" filename="$data/shared/default_diffuse.dds"/>
+    <File fileId="14" filename="$data/shared/detailLibrary/flat_normal.png"/>
+    <File fileId="15" filename="$data/shared/detailLibrary/metallic/clear_diffuse.png"/>
+    <File fileId="13" filename="$data/shared/detailLibrary/metallic/clear_specular.png"/>
+    <File fileId="18" filename="$data/shared/detailLibrary/metallic/glass/glassClear01_specular.png"/>
+    <File fileId="6" filename="$data/shared/detailLibrary/nonMetallic/metal/metalPaintedRough_normal.png"/>
+    <File fileId="5" filename="$data/shared/detailLibrary/nonMetallic/metal/metalPaintedRough_specular.png"/>
+    <File fileId="7" filename="$data/shared/detailLibrary/nonMetallic/metal/metalPainted_diffuse.png"/>
+    <File fileId="16" filename="$data/shared/detailLibrary/nonMetallic/metal/metalPainted_specular.dds"/>
+    <File fileId="17" filename="$data/shared/window_diffuse.dds"/>
+    <File fileId="3" filename="lightbar_Vmask.png"/>
+    <File fileId="2" filename="lightbar_normal.png"/>
+  </Files>
+
+
+  <Materials>
+    <Material name="lb_chromeMat" materialId="5" customShaderId="4" customShaderVariation="staticLight">
+      <Texture fileId="1"/>
+      <Normalmap fileId="2"/>
+      <Glossmap fileId="3"/>
+      <Custommap name="detailSpecular" fileId="13"/>
+      <Custommap name="detailNormal" fileId="14"/>
+      <Custommap name="detailDiffuse" fileId="15"/>
+      <Custommap name="lightsIntensity" fileId="12"/>
+    </Material>
+    <Material name="lb_glassClear01Mat" materialId="6" alphaBlending="true" customShaderId="4" customShaderVariation="staticLight">
+      <Texture fileId="17"/>
+      <Normalmap fileId="2"/>
+      <Glossmap fileId="3"/>
+      <Custommap name="detailSpecular" fileId="18"/>
+      <Custommap name="detailNormal" fileId="14"/>
+      <Custommap name="detailDiffuse" fileId="15"/>
+      <Custommap name="lightsIntensity" fileId="12"/>
+    </Material>
+    <Material name="lb_metalPaintedRoughBlackMat" materialId="7" customShaderId="4" customShaderVariation="staticLight">
+      <Texture fileId="1"/>
+      <Normalmap fileId="2"/>
+      <Glossmap fileId="3"/>
+      <Custommap name="detailSpecular" fileId="16"/>
+      <Custommap name="detailNormal" fileId="14"/>
+      <Custommap name="detailDiffuse" fileId="7"/>
+      <Custommap name="lightsIntensity" fileId="12"/>
+      <CustomParameter name="colorScale" value="0.03 0.03 0.03"/>
+    </Material>
+    <Material name="lb_metalPaintedRoughBlackMat" materialId="8" customShaderId="4" customShaderVariation="staticLight">
+      <Texture fileId="1"/>
+      <Normalmap fileId="2"/>
+      <Glossmap fileId="3"/>
+      <Custommap name="detailSpecular" fileId="5"/>
+      <Custommap name="detailNormal" fileId="6"/>
+      <Custommap name="detailDiffuse" fileId="7"/>
+      <Custommap name="lightsIntensity" fileId="12"/>
+      <CustomParameter name="colorScale" value="0.03 0.03 0.03"/>
+    </Material>
+  </Materials>
+
+
+  <Shapes externalShapesFile="lightbar.i3d.shapes">
+  </Shapes>
+
+  <Scene>
+    <Shape name="middlemont" translation="-2.68221e-07 0 0" shapeId="1" clipDistance="300" nodeId="14" castsShadows="true" receiveShadows="true" materialIds="8,5">
+      <Shape name="mmount2" translation="-2.57666e-08 0.0208251 0" shapeId="2" nodeId="15" castsShadows="true" receiveShadows="true" materialIds="8">
+        <Shape name="lightbar" translation="-1.49012e-08 0.052 0" shapeId="3" nodeId="16" castsShadows="true" receiveShadows="true" materialIds="7,5">
+          <Shape name="lightbarglass" translation="-1.49012e-08 0 0" shapeId="4" nodeId="17" castsShadows="true" receiveShadows="true" materialIds="6"/>
+        </Shape>
+      </Shape>
+    </Shape>
+  </Scene>
+
+</i3D>

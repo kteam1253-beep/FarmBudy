@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<l10n>
+    <texts>
+        <text name="ui_enterFieldName" text="Entrez le nom du champ:"/>
+    </texts>
+</l10n>

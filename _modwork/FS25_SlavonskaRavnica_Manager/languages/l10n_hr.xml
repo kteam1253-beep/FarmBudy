@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<l10n>
+    <translationContributors/>
+    <texts>
+        <text name="input_afm_menu"    text="Upravitelj farme" />
+        <text name="input_afm_togg"    text="Prebacivanje vozila" />
+        <text name="input_afm_hot1"    text="Prečac vozila #1" />
+        <text name="input_afm_hot2"    text="Prečac vozila #2" />
+        <text name="input_afm_hot3"    text="Prečac vozila #3" />
+        <text name="input_afm_hot4"    text="Prečac vozila #4" />
+        <text name="input_afm_hot5"    text="Prečac vozila #5" />
+        <text name="input_afm_hot6"    text="Prečac vozila #6" />
+        <text name="input_afm_hot7"    text="Prečac vozila #7" />
+        <text name="input_afm_hot8"    text="Prečac vozila #8" />
+        <text name="input_afm_hot9"    text="Prečac vozila #9" />
+        <text name="afm_noVehiclesFound" text="Ova farma trenutno nema vozila." />
+        <text name="afm_noToolsFound" text="Ova farma trenutno nema priključnih strojeva." />
+        <text name="afm_noPlaceablesFound" text="Ova farma trenutno nema objekata." />
+        <text name="afm_sellVehicleConfirm" text="Želite li zaista prodati ovo vozilo za %s?" />
+        <text name="afm_moneyFormat"   text="%d €" />
+        <text name="afm_name"          text="Naziv" />
+        <text name="afm_incomePerHour" text="Prihod po satu" />
+        <text name="afm_location"      text="Lokacija" />
+        <text name="afm_category"      text="Kategorija" />
+        <text name="afm_crop"          text="Stanje usjeva" />
+        <text name="afm_fieldNum"      text="Polje #" />
+        <text name="afm_owner"         text="Vlasnik" />
+        <text name="afm_occupant"      text="Vozač" />
+        <text name="afm_ownership"     text="Vlasništvo" />
+        <text name="afm_leasingCost"   text="Cijena najma po danu" />
+        <text name="afm_dailyUpkeep"   text="Dnevno održavanje" />
+        <text name="afm_prePlaced"     text="Prethodno postavljeno" />
+        <text name="afm_mapDefault"    text="Zadano na mapi" />
+        <text name="afm_fillLevel"     text="Razina punjenja" />
+        <text name="afm_compacted"     text="Razina zbijanja" />
+        <text name="afm_fermented"     text="Razina fermentacije" />
+        <text name="afm_capacity"      text="Kapacitet" />
+        <text name="afm_sellValue"     text="Prodajna vrijednost" />
+        <text name="afm_licensePlate"  text="Registarska oznaka" />
+        <text name="afm_maxCruise"     text="Maks. brzina" />
+        <text name="afm_age"           text="Starost" />
+        <text name="afm_power"         text="Snaga motora" />
+        <text name="afm_operatingHours" text="Radni sati" />
+        <text name="afm_powerRequirement" text="Potrebna snaga" />
+        <text name="afm_maxWorkingSpeed" text="Maks. radna brzina" />
+        <text name="afm_owned"         text="U vlasništvu" />
+        <text name="afm_leased"        text="Iznajmljeno" />
+        <text name="afm_mission"       text="Misija" />
+        <text name="afm_brand"         text="Marka" />
+        <text name="afm_you"           text="Vi" />
+        <text name="afm_con_ai"        text="AI pomoćnik" />
+        <text name="afm_con_ad"        text="AutoDrive" />
+        <text name="afm_con_cp"        text="CoursePlay" />
+        <text name="afm_occupied"      text="Vozilo je već u upotrebi!" />
+        <text name="afm_parked"        text="Parkirano" />
+        <text name="afm_park"          text="Parkiraj" />
+        <text name="afm_unpark"        text="Odparkiraj" />
+        <text name="afm_tool"          text="Priključak #%d" />
+        <text name="afm_fill"          text="Punjenje #%d" />
+        <text name="afm_warp_tool"     text="Teleport do priključka" />
+        <text name="afm_warp_loc"      text="Teleport do lokacije" />
+        <text name="afm_placeable"     text="Objekt" />
+        <text name="afm_toolOverview"  text="Priključci" />
+        <text name="afm_placOverview"  text="Objekti" />
+        <text name="afm_fldOverview"   text="Polja" />
+        <text name="afm_nonSell"       text="Ne može se prodati" />
+        <text name="afm_cleanDialog"   text="Operi"/>
+        <text name="afm_paintDialog"   text="Prelakaj"/>
+        <text name="afm_repairDialog"  text="Popravi"/>
+        <text name="afm_refuelDialog"  text="Natankaj"/>
+        <text name="afm_refillDialog"  text="Napuni"/>
+        <text name="afm_constructionState" text="Napredak gradnje" />
+        <text name="afm_constructionProgress" text="%d od %d" />
+        <text name="afm_estBuildTime"  text="Procijenjeno vrijeme gradnje" />
+        <text name="afm_estBuildTimeRemaining" text="Preostalo vrijeme gradnje" />
+        <text name="afm_materialsInStorage" text="Materijali u skladištu" />
+        <text name="afm_totals"        text="Ukupno" />
+        <text name="afm_farmlands"     text="Poljoprivredno zemljište" />
+        <text name="afm_crops"         text="Usjevi" />
+        <text name="afm_cropStage"     text="Faza rasta" />
+        <text name="afm_unknown"       text="Nepoznato" />
+        <text name="afm_none"          text="Nema" />
+        <text name="afm_fieldInfo_expectedYield" text="Očekivani prinos" />
+        <text name="afm_fieldInfo_yieldPotential" text="Potencijal prinosa" />
+        <text name="afm_Foragable"    text="Krma" />
+        <text name="afm_Narrow_Wheels" text="Samo uske" />
+        <text name="afm_All_Wheels"   text="Sve gume i gusjenice" />
+        <text name="afm_growth_stage" text="Faza rasta" />
+        <text name="afm_wheel_type"   text="Preporučene gume" />
+        <text name="afm_cropType"     text="Vrsta usjeva" />
+        <text name="afm_fieldArea"    text="Površina polja" />
+        <text name="afm_farmlandArea" text="Površina zemljišta" />
+        <text name="afm_landValue"    text="Vrijednost zemljišta" />
+
+        <text name="afm_locate_center" text="Centar" />
+        <text name="afm_locate_n"      text="Sjever" />
+        <text name="afm_locate_s"      text="Jug" />
+        <text name="afm_locate_e"      text="Istok" />
+        <text name="afm_locate_w"      text="Zapad" />
+        <text name="afm_locate_nw"     text="Sjeverozapad" />
+        <text name="afm_locate_ne"     text="Sjeveroistok" />
+        <text name="afm_locate_sw"     text="Jugozapad" />
+        <text name="afm_locate_se"     text="Jugoistok" />
+        <text name="afm_hotkeystring"  text="Koristite tipke 1-9 za postavljanje ili uklanjanje prečaca vozila" />
+        <text name="afm_help_title"    text="Upravitelj farme"/>
+        <text name="afm_help_page_vehicle_base_text" text="
+Ovaj dio Upravitelja farme pomaže u upravljanju vozilima. Ovdje se prikazuju traktori, automobili, kamioni i ostali samohodni strojevi.
+
+U ovom području možete postaviti prečace za vozila, postaviti status parkiranja i dodijeliti nadimak vozilu.
+
+Korištenjem tipke 'Uđi u vozilo' (RAZMAKNICA) ili duplim klikom na vozilo ući ćete u to vozilo ako je moguće.
+
+Također možete prodati, vratiti, oprati, popraviti, prelakirati i natankati svoja vozila.
+
+Korištenjem tipke 'Prebacivanje vozila' (Lijevi Alt + Numerička nula) možete TAB-om prebacivati između svih vozila ili samo onih s prečacem.
+" />
+        <text name="afm_help_page_vehicle_detail_text" text="
+Za postavljanje prečaca koristite tipke 1-9 (tipkovnica ili numerička tipkovnica). Trenutni prečac prikazuje se lijevo od naziva vozila. Samo jedno vozilo može biti dodijeljeno po prečacu. Za uklanjanje prečaca pritisnite taj broj ponovo.
+
+Vozila prikazana žutim tekstom / s ikonom motora trenutno rade.
+
+Vozila prikazana sivim tekstom / s ikonom ručne kočnice trenutno su parkirana.
+
+Vozila prikazana crvenim tekstom imaju oštećenja koja mogu utjecati na učinkovitost vozila.
+" />
+        <text name="afm_help_page_implement_base_text" text="
+Ovaj dio Upravitelja farme pomaže u upravljanju priključnim strojevima.
+
+Korištenjem tipke 'Teleport' (RAZMAKNICA) ili duplim klikom na priključak teleportirat ćete se blizu tog priključka.
+
+U ovom području možete prodati, vratiti, oprati, popraviti i prelakirati svoje priključke.
+
+Priključci prikazani crvenim tekstom imaju oštećenja koja mogu utjecati na učinkovitost.
+" />
+        <text name="afm_help_page_placeable_base_text" text="
+Ovaj dio Upravitelja farme pomaže u upravljanju objektima.
+
+U ovom području možete prodati sve objekte koje posjedujete. Preporučuje se spremiti igru prije prodaje 'neobičnih' objekata jer mogu ukloniti više nego što očekujete.
+
+Korištenjem tipke 'Teleport' (RAZMAKNICA) ili duplim klikom na objekt teleportirat ćete se blizu tog objekta.
+
+Prikazana lokacija je područje na mapi gdje se objekt nalazi.
+" />
+        <text name="afm_help_page_field_base_text" text="
+Ovaj dio Upravitelja farme pomaže u pregledu polja na mapi.
+
+Korištenjem tipke 'Teleport' (RAZMAKNICA) ili duplim klikom na polje teleportirat ćete se blizu tog polja.
+
+Ovdje je prikazan vlasnik polja i ako je NPC, pokazuje dali je ugovor dostupan ili u tijeku na tom polju.
+
+U ovom području možete vidjeti i usjev te njegov status za svako polje. Ako je usjev prikazan kao '--', polje je trenutno prazno.
+
+Prikazana lokacija je područje na mapi gdje se polje nalazi.
+" />
+        <text name="afm_noAvailVehicle"   text="Nema dostupnih vozila s prečacem" />
+        <text name="afm_toggleNotLimited" text="Prebacivanje vozila: Normalno" />
+        <text name="afm_toggleLimited"    text="Prebacivanje vozila: Samo prečaci" />
+        <text name="afm_contract"         text="Ugovor" />
+        <text name="afm_contract_avail"   text="Ugovor dostupan, %s" tag="format" />
+        <text name="afm_contract_active"  text="Ugovor aktivan, %s" tag="format" />
+        <text name="afm_refuel_ask"       text="Natankati vozilo za %s?" tag="format" />
+        <text name="afm_refuel"           text="Natankaj" />
+        <text name="afm_refill"           text="Napuni" />
+        <text name="afm_harvestPotential" text="Potencijal žetve" />
+        <text name="afm_potentialYield"   text="Potencijalni prinos" />
+        <text name="afm_rolling"          text="Valjanje" />
+        <text name="afm_lime"             text="Vapno" />
+        <text name="afm_sell_animals"     text="Prodaj životinje" />
+        <text name="afm_sellAnimalsConfirm" text="Želite li prodati sve životinje u ovoj staji za %s?" />
+        <text name="afm_animalsValue"     text="Vrijednost životinja" />
+        <text name="afm_year"             text="Godina" />
+        <text name="afm_years"            text="Godine" />
+        <text name="afm_month"            text="Mjesec" />
+        <text name="afm_months"           text="Mjeseci" />
+    </texts>
+</l10n>

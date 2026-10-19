@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<modDesc descVersion="92">
+    
+	<author>Midnight</author>
+    <version>1.0.0.8</version>
+
+	<title>
+	<en>Rapide 8400 Windrower</en>
+	<de>Rapide 8400 Windrower</de>
+	<hr>Rapide 8400 Skupljač otkosa</hr>
+    </title>
+    
+	<description>
+        <en>Rapide 8400W, convert from FS19 / FS22, Mod von Giants BDBSSB NcRaiders Velocity DK / MistiCat</en>
+        <de>Rapide 8400W, konventiert aus FS19 / FS22, Mod von Giants BDBSSB NcRaiders Velocity DK / MistiCat</de>
+        <hr>Rapide 8400W, konvertirano iz FS19 / FS22, Mod od Giants BDBSSB NcRaiders Velocity DK / MistiCat</hr>
+    </description>
+    
+	<iconFilename>store_rapide8400Windrow.dds</iconFilename>
+    
+	<multiplayer supported="true"/>
+
+    <extraSourceFiles>
+        <sourceFile filename="rapidedryer.lua"/>
+    </extraSourceFiles>
+
+    <specializations>
+        <specialization name="rapideDryer" className="RapideDryer" filename="rapidedryer.lua"/>
+    </specializations>
+
+    <vehicleTypes>
+        <type name="rapide8400WDryer" parent="forageWagon" className="Vehicle" filename="$dataS/scripts/vehicles/Vehicle.lua">
+            <specialization name="rapideDryer"/>
+        </type>
+    </vehicleTypes>
+
+    <actions>
+        <action name="RAPIDE_DRYER_TOGGLE" category="VEHICLE" axisType="HALF" />
+    </actions>
+
+    <inputBinding>
+        <actionBinding action="RAPIDE_DRYER_TOGGLE">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_o" />
+        </actionBinding>
+    </inputBinding>
+    
+	<storeItems>
+        <storeItem xmlFilename="rapide8400W.xml"/>
+    </storeItems>
+    
+	<l10n>
+        <text name="function_8400Windrow">
+            <en>Has the option to add windrow arms.</en>
+            <hr>Ima mogućnost dodavanja ruku za otkos.</hr>
+        </text>
+        <text name="shopItem_8400Windrow">
+            <en>Rapide 8400 Windrower</en>
+            <hr>Rapide 8400 Skupljač otkosa</hr>
+        </text>
+        <text name="unfold_WINDROWER">
+            <en>Unfold Windrower</en>
+            <hr>Rasklopite skupljač otkosa</hr>
+        </text>
+        <text name="fold_WINDROWER">
+            <en>Fold Windrower</en>
+            <hr>Sklopite skupljač otkosa</hr>
+        </text>
+        <text name="action_rapide_toggleDryer">
+            <en>Toggle Dryer</en>
+            <hr>Uključi/isključi sušilicu</hr>
+        </text>
+        <text name="info_rapide_dryerOn">
+            <en>Dryer: On</en>
+            <hr>Sušilica: Uključena</hr>
+        </text>
+        <text name="info_rapide_dryerOff">
+            <en>Dryer: Off</en>
+            <hr>Sušilica: Isključena</hr>
+        </text>
+    </l10n>
+
+	<brands>
+		<brand title="Midnight" image="brand_Midnight.dds" name="Midnight"/>
+	</brands>
+
+</modDesc>

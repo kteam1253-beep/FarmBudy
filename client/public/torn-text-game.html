@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Torn-Style Tekstualna Igra</title>
+  <style>
+    body { font-family: Inter, Roboto, Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+    #game { width: min(980px, 100%); padding: 1rem; background: rgba(15,23,42,0.94); border: 1px solid #334155; border-radius: 12px; box-shadow: 0 20px 45px rgba(15,23,42,0.4); }
+    h1 { margin: 0 0 0.4rem 0; color: #22c55e; }
+    .panel { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+    .box { border-radius: 10px; background:#1e293b; border:1px solid #334155; padding: 0.9rem; }
+    button { background: #2563eb; color: #e2e8f0; border: 1px solid #1e3a8a; padding: 0.55rem 0.9rem; border-radius: 0.55rem; cursor: pointer; font-weight: 600; }
+    button:hover { background: #1d4ed8; }
+    #log { white-space: pre-line; overflow-y: auto; max-height: 260px; margin-top: 0.5rem; font-size: .93rem; line-height: 1.45; background: #0b1221; border: 1px solid #334155; border-radius: 8px; padding: 0.7rem; }
+    .stats { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:0.5rem; margin-top:0.5rem; }
+    .stats span { font-size: .94rem; }
+    .okay { color: #22c55e; }
+    .warn { color: #f59e0b; }
+    .danger { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <main id="game">
+    <h1>Torn-lite: Treniraj, Attack, Trade</h1>
+    <p>Brza tekstualna igra inspirirana Torn Cityjem. Vježbaj snagu i obranu, napadaj NPC protivnike, i trguj sa robom.</p>
+
+    <div class="panel">
+      <div class="box">
+        <h2>Stanje igrača</h2>
+        <div class="stats" id="playerStats"></div>
+      </div>
+
+      <div class="box">
+        <h2>Trgovina</h2>
+        <div class="stats" id="marketStats"></div>
+        <div style="margin-top: 0.75rem; display:flex; gap:.5rem; align-items:center;">
+          <select id="itemSelect" style="flex:1; border-radius:.45rem; padding:.4rem; border:1px solid #334155; background:#0b1221; color:#e2e8f0;"></select>
+          <input id="quantityInput" type="number" min="1" value="1" style="width:70px; border-radius:.45rem; padding:.4rem; border:1px solid #334155; background:#0b1221; color:#e2e8f0;" />
+        </div>
+        <div style="margin-top:.75rem; display:grid; grid-template-columns:1fr 1fr; gap:.5rem;">
+          <button id="buyBtn">Kupi</button>
+          <button id="sellBtn">Prodaj</button>
+        </div>
+      </div>
+
+      <div class="box">
+        <h2>Trening</h2>
+        <button id="trainStrength">Treniraj snagu</button>
+        <button id="trainDefense" style="margin-left:.5rem;">Treniraj obranu</button>
+        <p style="margin-top:.6rem; font-size:.9rem; color:#cbd5e1;">Svaki trening troši energiju i povećava statistiku.</p>
+      </div>
+
+      <div class="box">
+        <h2>Napad</h2>
+        <button id="attackBtn">Napadni NPC</button>
+        <p style="margin-top:.6rem; font-size:.9rem; color:#cbd5e1;">Koristi snagu i obranu da pobijediš protivnika.</p>
+      </div>
+
+      <div class="box">
+        <h2>Auto Torn Bot</h2>
+        <button id="autoToggle">Pokreni Auto</button>
+        <p style="margin-top:.6rem; font-size:.9rem; color:#cbd5e1;">Bot će pokušavati trenirati i napadati automatski prema energiji i stanju.</p>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Dnevnik</h2>
+      <div id="log">Dobrodošao! Klikni akciju da počneš.</div>
+    </div>
+  </main>
+
+  <script>
+    const state = {
+      level: 1,
+      exp: 0,
+      strength: 8,
+      defense: 8,
+      energy: 20,
+      money: 120,
+      inventory: { "nutrients": 0, "dagger": 0, "medkit": 0 },
+      market: {
+        nutrients: 8,
+        dagger: 62,
+        medkit: 31,
+      },
+      log: [],
+      autoRunning: false,
+    };
+
+    const lowEnergy = () => state.energy <= 2;
+
+    function addLog(text) {
+      state.log.unshift('[' + new Date().toLocaleTimeString('hr-HR') + '] ' + text);
+      if (state.log.length > 40) state.log.pop();
+      document.getElementById('log').innerText = state.log.join('\n');
+    }
+
+    function refreshUI() {
+      const playerStats = document.getElementById('playerStats');
+      const items = [
+        `Level: ${state.level}`,
+        `EXP: ${state.exp}/${50 + state.level * 15}`,
+        `Snaga: ${state.strength}`,
+        `Obrana: ${state.defense}`,
+        `Energija: ${state.energy}`,
+        `Novac: ${state.money} $`,
+        `Inventar: nutrients x${state.inventory.nutrients}, dagger x${state.inventory.dagger}, medkit x${state.inventory.medkit}`,
+      ];
+      playerStats.innerHTML = items.map(i => `<span>${i}</span>`).join('');
+
+      const marketStats = document.getElementById('marketStats');
+      marketStats.innerHTML = Object.entries(state.market).map(([k,v]) => `<span>${k}: ${v} $</span>`).join('');
+
+      const select = document.getElementById('itemSelect');
+      select.innerHTML = Object.keys(state.market).map(k => `<option value="${k}">${k}</option>`).join('');
+
+      document.getElementById('trainStrength').disabled = state.energy < 2;
+      document.getElementById('trainDefense').disabled = state.energy < 2;
+      document.getElementById('attackBtn').disabled = state.energy < 3;
+      document.getElementById('buyBtn').disabled = false;
+      document.getElementById('sellBtn').disabled = false;
+
+      if (lowEnergy()) {
+        addLog('⚠ Energija niska. Odmori, kupi medkit ili spavaj.');
+      }
+    }
+
+    function gainExp(amount) {
+      state.exp += amount;
+      const threshold = 50 + state.level * 15;
+      if (state.exp >= threshold) {
+        state.exp -= threshold;
+        state.level += 1;
+        state.strength += Math.floor(Math.random()*2 + 1);
+        state.defense += Math.floor(Math.random()*2 + 1);
+        state.energy = Math.min(25, state.energy + 6);
+        addLog('⭐ Uspjeh! Nivo porastao na ' + state.level + '. Statistike porasle.');
+      }
+    }
+
+    function randomEvent() {
+      if (Math.random() < 0.15) {
+        const refresh = Math.floor(Math.random() * 3) - 1;
+        Object.keys(state.market).forEach(key => {
+          state.market[key] = Math.max(5, state.market[key] + Math.floor((Math.random()-.5)*8));
+        });
+        addLog('📰 Tržište se pomaknulo: cijene su blago promijenile.');
+      }
+    }
+
+    document.getElementById('trainStrength').addEventListener('click', () => {
+      if (state.energy < 2) { addLog('😴 Premalo energije za trening. Odmori ili kupi liter energije.'); return; }
+      state.energy -= 2;
+      const gain = Math.floor(1 + Math.random() * 3);
+      state.strength += gain;
+      gainExp(8 + Math.floor(Math.random() * 6));
+      addLog(`💪 Trening snage +${gain}.`);
+      randomEvent();
+      refreshUI();
+    });
+
+    document.getElementById('trainDefense').addEventListener('click', () => {
+      if (state.energy < 2) { addLog('😴 Premalo energije za trening. Odmori ili kupi liter energije.'); return; }
+      state.energy -= 2;
+      const gain = Math.floor(1 + Math.random() * 3);
+      state.defense += gain;
+      gainExp(8 + Math.floor(Math.random() * 6));
+      addLog(`🛡️ Trening obrane +${gain}.`);
+      randomEvent();
+      refreshUI();
+    });
+
+    document.getElementById('attackBtn').addEventListener('click', () => {
+      if (state.energy < 3) {
+        addLog('😓 Nemaš dovoljno energije za napad.');
+        return;
+      }
+      state.energy -= 3;
+
+      const enemyLevel = Math.max(1, state.level + Math.floor(Math.random() * 3 - 1));
+      const enemyPower = enemyLevel * 10 + Math.floor(Math.random() * 12);
+      const playerPower = state.strength * 2 + state.defense + Math.floor(Math.random() * 12);
+
+      addLog(`⚔️ Napad na NPC razine ${enemyLevel} (Snaga ${enemyPower})...`);
+
+      if (playerPower > enemyPower) {
+        const rewardMoney = Math.floor(15 + enemyLevel * 12 + Math.random() * 18);
+        const rewardExp = Math.floor(20 + enemyLevel * 6);
+        state.money += rewardMoney;
+        gainExp(rewardExp);
+        addLog(`🏆 Pobjeda! Dobio si ${rewardMoney} $, ${rewardExp} exp. (tvoj ${playerPower} vs protivnikov ${enemyPower})`);
+      } else {
+        const injury = Math.ceil((enemyPower - playerPower) / 3);
+        state.defense = Math.max(1, state.defense - injury);
+        state.energy = Math.max(0, state.energy - 2);
+        addLog(`✖ Poraz. Izgubio si ${injury} obrane i 2 energije. (tvoj ${playerPower} vs protivnikov ${enemyPower})`);
+      }
+
+      randomEvent();
+      refreshUI();
+    });
+
+    document.getElementById('buyBtn').addEventListener('click', () => {
+      const item = document.getElementById('itemSelect').value;
+      const q = Math.max(1, Math.floor(Number(document.getElementById('quantityInput').value) || 1));
+      const cost = state.market[item] * q;
+      if (cost > state.money) { addLog('❌ Nemaš dovoljno novaca za kupnju.'); return; }
+      state.money -= cost;
+      state.inventory[item] += q;
+      addLog(`🛒 Kupio ${q}x ${item} za ${cost} $`);
+      if (item === 'nutrients') { state.energy = Math.min(25, state.energy + Math.min(8, q*2)); addLog('⚡ Energija obnovljena.'); }
+      if (item === 'medkit') { state.energy = Math.min(25, state.energy + Math.min(10, q*3)); addLog('🩹 Koristio medkit za oporavak.'); }
+      randomEvent();
+      refreshUI();
+    });
+
+    document.getElementById('sellBtn').addEventListener('click', () => {
+      const item = document.getElementById('itemSelect').value;
+      const q = Math.max(1, Math.floor(Number(document.getElementById('quantityInput').value) || 1));
+      if (state.inventory[item] < q) { addLog(`❌ Nemaš toliko ${item} na lageru.`); return; }
+      const payment = Math.round(state.market[item] * 0.7 * q);
+      state.inventory[item] -= q;
+      state.money += payment;
+      addLog(`💰 Prodao ${q}x ${item} za ${payment} $`);
+      randomEvent();
+      refreshUI();
+    });
+
+    refreshUI();
+    addLog('Igra spremna! Počni s treningom ili napadom.');
+  </script>
+</body>
+</html>
